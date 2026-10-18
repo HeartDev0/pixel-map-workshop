@@ -1,0 +1,248 @@
+[
+  {
+    "file": "Props/01_Layer10_Prop0.png",
+    "title": "Roca 07",
+    "width": 8,
+    "height": 5
+  },
+  {
+    "file": "Props/02_Layer10_Prop1.png",
+    "title": "Roca 08",
+    "width": 11,
+    "height": 5
+  },
+  {
+    "file": "Props/03_Layer10_Prop2.png",
+    "title": "Roca 09",
+    "width": 13,
+    "height": 7
+  },
+  {
+    "file": "Props/04_Layer10_Prop3.png",
+    "title": "Roca 10",
+    "width": 10,
+    "height": 5
+  },
+  {
+    "file": "Props/05_Layer10_Prop4.png",
+    "title": "Roca 11",
+    "width": 14,
+    "height": 7
+  },
+  {
+    "file": "Props/06_Layer10_Prop5.png",
+    "title": "Roca 12",
+    "width": 11,
+    "height": 6
+  },
+  {
+    "file": "Props/07_Layer3_Prop0.png",
+    "title": "Roca 01",
+    "width": 8,
+    "height": 5
+  },
+  {
+    "file": "Props/08_Layer3_Prop1.png",
+    "title": "Roca 02",
+    "width": 11,
+    "height": 5
+  },
+  {
+    "file": "Props/09_Layer3_Prop2.png",
+    "title": "Roca 03",
+    "width": 13,
+    "height": 7
+  },
+  {
+    "file": "Props/10_Layer3_Prop3.png",
+    "title": "Roca 04",
+    "width": 10,
+    "height": 5
+  },
+  {
+    "file": "Props/11_Layer3_Prop4.png",
+    "title": "Roca 05",
+    "width": 14,
+    "height": 7
+  },
+  {
+    "file": "Props/12_Layer3_Prop5.png",
+    "title": "Roca 06",
+    "width": 11,
+    "height": 6
+  },
+  {
+    "file": "Props/13_Layer6_Prop0.png",
+    "title": "Árbol 01",
+    "width": 29,
+    "height": 38
+  },
+  {
+    "file": "Props/14_Layer6_Prop1.png",
+    "title": "Árbol 02",
+    "width": 22,
+    "height": 28
+  },
+  {
+    "file": "Props/15_Layer6_Prop2.png",
+    "title": "Árbol 03",
+    "width": 38,
+    "height": 49
+  },
+  {
+    "file": "Props/16_Layer8_Prop0.png",
+    "title": "Árbol 04",
+    "width": 22,
+    "height": 28
+  },
+  {
+    "file": "Props/17_Layer8_Prop1.png",
+    "title": "Árbol 05",
+    "width": 29,
+    "height": 38
+  },
+  {
+    "file": "Props/18_Layer8_Prop10.png",
+    "title": "Árbol 14",
+    "width": 22,
+    "height": 28
+  },
+  {
+    "file": "Props/19_Layer8_Prop11.png",
+    "title": "Árbol 15",
+    "width": 22,
+    "height": 28
+  },
+  {
+    "file": "Props/20_Layer8_Prop12.png",
+    "title": "Árbol 16",
+    "width": 22,
+    "height": 28
+  },
+  {
+    "file": "Props/21_Layer8_Prop13.png",
+    "title": "Árbol 17",
+    "width": 22,
+    "height": 28
+  },
+  {
+    "file": "Props/22_Layer8_Prop14.png",
+    "title": "Árbol 18",
+    "width": 22,
+    "height": 28
+  },
+  {
+    "file": "Props/23_Layer8_Prop15.png",
+    "title": "Árbol 19",
+    "width": 21,
+    "height": 7
+  },
+  {
+    "file": "Props/24_Layer8_Prop2.png",
+    "title": "Árbol 06",
+    "width": 22,
+    "height": 28
+  },
+  {
+    "file": "Props/25_Layer8_Prop3.png",
+    "title": "Árbol 07",
+    "width": 22,
+    "height": 28
+  },
+  {
+    "file": "Props/26_Layer8_Prop4.png",
+    "title": "Árbol 08",
+    "width": 22,
+    "height": 28
+  },
+  {
+    "file": "Props/27_Layer8_Prop5.png",
+    "title": "Árbol 09",
+    "width": 22,
+    "height": 28
+  },
+  {
+    "file": "Props/28_Layer8_Prop6.png",
+    "title": "Árbol 10",
+    "width": 22,
+    "height": 28
+  },
+  {
+    "file": "Props/29_Layer8_Prop7.png",
+    "title": "Árbol 11",
+    "width": 22,
+    "height": 28
+  },
+  {
+    "file": "Props/30_Layer8_Prop8.png",
+    "title": "Árbol 12",
+    "width": 22,
+    "height": 28
+  },
+  {
+    "file": "Props/31_Layer8_Prop9.png",
+    "title": "Árbol 13",
+    "width": 29,
+    "height": 38
+  },
+  {
+    "file": "Props/32_Flor01.png",
+    "title": "Flor 01",
+    "width": 6,
+    "height": 6
+  },
+  {
+    "file": "Props/33_Flor02.png",
+    "title": "Flor 02",
+    "width": 6,
+    "height": 6
+  },
+  {
+    "file": "Props/34_Flor03.png",
+    "title": "Flor 03",
+    "width": 7,
+    "height": 7
+  },
+  {
+    "file": "Props/35_Grass8px.png",
+    "title": "Césped",
+    "width": 9,
+    "height": 8
+  },
+  {
+    "file": "Props/36_Arco.png",
+    "title": "Arco de entrada",
+    "width": 63,
+    "height": 66
+  },
+  {
+    "file": "Props/37_Cartel.png",
+    "title": "Cartel",
+    "width": 31,
+    "height": 39
+  },
+  {
+    "file": "Props/38_CERCAS.png",
+    "title": "Cercas",
+    "width": 28,
+    "height": 13
+  },
+  {
+    "file": "Props/39_Hoja.png",
+    "title": "Hoja",
+    "width": 25,
+    "height": 26
+  },
+  {
+    "file": "Props/40_Pared_Ladrillos.png",
+    "title": "Pared de ladrillos",
+    "width": 58,
+    "height": 27
+  },
+  {
+    "file": "Props/41_Uiseleccion.png",
+    "title": "Uiseleccion",
+    "width": 10,
+    "height": 12
+  }
+]

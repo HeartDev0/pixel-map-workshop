@@ -1,0 +1,19 @@
+.canvas-size-window { background-color: #37383e; color: #c5c6cc; font-size: 14px; border-left-width: 2px; border-right-width: 2px; border-top-width: 1px; border-bottom-width: 2px; border-left-color: #747780; border-right-color: #14151a; border-top-color: #747780; border-bottom-color: #14151a; }
+.canvas-titlebar { position: absolute; left: 0; top: 0; right: 0; height: 24px; background-color: #45494f; padding-left: 4px; padding-top: 1px; }
+.canvas-titlebar Label { font-size: 15px; color: #d5d7dc; }
+.canvas-group { border-left-width: 1px; border-right-width: 1px; border-top-width: 1px; border-bottom-width: 1px; border-left-color: #303138; border-right-color: #303138; border-top-color: #303138; border-bottom-color: #303138; }
+.canvas-group-title { background-color: #37383e; color: #8db8ff; padding-left: 2px; font-size: 15px; }
+.canvas-size-window Button { margin: 0; border-radius: 2px; border-left-width: 2px; border-right-width: 2px; border-top-width: 2px; border-bottom-width: 2px; border-left-color: #131418; border-right-color: #131418; border-top-color: #131418; border-bottom-color: #131418; background-color: #46494f; color: #cacdd4; padding: 0; -unity-text-align: middle-center; }
+.canvas-size-window Button:hover { background-color: #555a64; }
+.canvas-size-window .canvas-anchor { border-radius: 0; font-size: 25px; border-left-color: #14151a; border-right-color: #14151a; border-top-color: #14151a; border-bottom-color: #14151a; background-color: #50535a; }
+.canvas-size-window .canvas-anchor-selected { background-color: #72767e; color: #e3e5eb; }
+.canvas-size-window .canvas-anchor { align-items: center; justify-content: center; }
+.canvas-anchor Image { width: 27px; height: 29px; }
+.canvas-size-window .canvas-number { margin: 0; padding: 0; }
+.canvas-number .unity-base-text-field__input { background-color: #22242a; color: #e0e1e8; border-radius: 1px; border-left-width: 2px; border-right-width: 2px; border-top-width: 2px; border-bottom-width: 2px; border-left-color: #111216; border-right-color: #111216; border-top-color: #111216; border-bottom-color: #111216; padding-left: 5px; padding-right: 5px; -unity-text-align: middle-left; }
+.canvas-number.canvas-number-focused .unity-base-text-field__input { border-left-color: #99bdff; border-right-color: #99bdff; border-top-color: #99bdff; border-bottom-color: #99bdff; }
+.canvas-unit { position: absolute; top: 4px; height: 19px; color: #b5b8c2; }
+.canvas-size-window .unity-toggle { margin: 0; padding: 0; font-size: 13px; }
+.canvas-size-window .unity-toggle__input { margin: 0; }
+.canvas-size-window .unity-toggle__checkmark { width: 14px; height: 14px; margin-right: 8px; background-color: #32343b; border-left-width: 1px; border-right-width: 1px; border-top-width: 1px; border-bottom-width: 1px; border-left-color: #27282e; border-right-color: #484b55; border-top-color: #27282e; border-bottom-color: #484b55; }
+.canvas-size-window .canvas-dialog-action { font-size: 15px; background-color: #44474e; }

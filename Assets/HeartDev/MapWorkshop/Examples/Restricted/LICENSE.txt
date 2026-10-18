@@ -1,0 +1,28 @@
+HeartDev Pixel Map Workshop — Restricted Demonstration Assets License 1.0
+Copyright (c) 2026 HeartDev. All rights reserved.
+
+Applies to all sprites, textures, sample maps, example libraries and other artistic
+content under Assets/HeartDev/MapWorkshop/Examples/Restricted/, plus the rendered
+images/screenshots under docs/screenshots/. This includes copies, crops, modified
+versions and assets embedded in or extracted from the example maps.
+
+Permission is granted only to download and inspect these files and display the
+examples locally inside Pixel Map Workshop for private evaluation, learning how
+the Tool works and reproducing reports about the Tool to HeartDev. Necessary
+local technical copies for that evaluation are permitted.
+
+You may NOT use, incorporate, adapt, extract, redistribute, sell, sublicense,
+transfer or give away these assets in any personal, commercial, noncommercial,
+client, game, prototype, asset pack, tutorial or other project. You may not ship
+them in a game/build, publish them as an asset library or present them as yours.
+Attribution does not grant permission to use these assets. The commercial-use
+permission for the Tool does not cover these examples.
+
+The rights required by GitHub's applicable terms to host, display and fork this
+public repository within GitHub are preserved; that exception does not grant
+project-use rights in the example assets. The publisher's display of the examples
+in this repository is not a grant of reuse rights to viewers.
+
+Use your own or separately licensed assets for every project you publish.
+Additional permission requires a separate written license from HeartDev.
+Provided AS IS, to the extent permitted by applicable law.

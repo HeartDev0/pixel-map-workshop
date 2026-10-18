@@ -1,0 +1,220 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 28f60ec12a236ad479fc9b40d89cfe3a, type: 3}
+  m_Name: ExampleProps
+  m_EditorClassIdentifier: HeartDev.MapWorkshop.Editor::HeartDev.MapWorkshop.PixelMapPropLibrary
+  entries:
+  - sprite: {fileID: 21300000, guid: 88b043744c8ba734f82b70dbaac3e33e, type: 3}
+    title: Roca 01
+    category: 1
+    repeatAlongLine: 0
+    pitch: 0
+  - sprite: {fileID: 21300000, guid: 25a63db6cd4abc847826e696078fd4d7, type: 3}
+    title: Roca 02
+    category: 1
+    repeatAlongLine: 0
+    pitch: 0
+  - sprite: {fileID: 21300000, guid: d59927ff9236c2d4b88d55ec76a87229, type: 3}
+    title: Roca 03
+    category: 1
+    repeatAlongLine: 0
+    pitch: 0
+  - sprite: {fileID: 21300000, guid: 46420ffe7dd01d54abcee8d3f52e2651, type: 3}
+    title: Roca 04
+    category: 1
+    repeatAlongLine: 0
+    pitch: 0
+  - sprite: {fileID: 21300000, guid: 8eb772f4ea29ed74094ac6f989c0ff59, type: 3}
+    title: Roca 05
+    category: 1
+    repeatAlongLine: 0
+    pitch: 0
+  - sprite: {fileID: 21300000, guid: d37d0def79f553440ab64611f740a0da, type: 3}
+    title: Roca 06
+    category: 1
+    repeatAlongLine: 0
+    pitch: 0
+  - sprite: {fileID: 21300000, guid: 0ffa3181b47c0974480fa461cb8de918, type: 3}
+    title: "\xC1rbol 01"
+    category: 0
+    repeatAlongLine: 0
+    pitch: 0
+  - sprite: {fileID: 21300000, guid: eda33a3f1d9e16f43a15f930533bdf05, type: 3}
+    title: "\xC1rbol 02"
+    category: 0
+    repeatAlongLine: 0
+    pitch: 0
+  - sprite: {fileID: 21300000, guid: 689869d9ca26fef4f8537984215b8bbc, type: 3}
+    title: "\xC1rbol 03"
+    category: 0
+    repeatAlongLine: 0
+    pitch: 0
+  - sprite: {fileID: 21300000, guid: f2d0f4188406226438a4ca19eb0b1cda, type: 3}
+    title: "\xC1rbol 04"
+    category: 0
+    repeatAlongLine: 0
+    pitch: 0
+  - sprite: {fileID: 21300000, guid: 745104c2b52e2b84ab13441731b3968c, type: 3}
+    title: "\xC1rbol 05"
+    category: 0
+    repeatAlongLine: 0
+    pitch: 0
+  - sprite: {fileID: 21300000, guid: 84fbdfc62a10e794cb14409acdce1be9, type: 3}
+    title: "\xC1rbol 06"
+    category: 0
+    repeatAlongLine: 0
+    pitch: 0
+  - sprite: {fileID: 21300000, guid: 87375c26fac36fc469bc3af83221ad47, type: 3}
+    title: "\xC1rbol 07"
+    category: 0
+    repeatAlongLine: 0
+    pitch: 0
+  - sprite: {fileID: 21300000, guid: 145cb68be7a2f3a43b7089f067cc6f65, type: 3}
+    title: "\xC1rbol 08"
+    category: 0
+    repeatAlongLine: 0
+    pitch: 0
+  - sprite: {fileID: 21300000, guid: 83ce41b3d70f35d409369f6401b3cd3e, type: 3}
+    title: "\xC1rbol 09"
+    category: 0
+    repeatAlongLine: 0
+    pitch: 0
+  - sprite: {fileID: 21300000, guid: b2a8780ae70fab743915fb4d8b7128f2, type: 3}
+    title: "\xC1rbol 10"
+    category: 0
+    repeatAlongLine: 0
+    pitch: 0
+  - sprite: {fileID: 21300000, guid: e8e6c732471bd274caadc480c5455010, type: 3}
+    title: "\xC1rbol 11"
+    category: 0
+    repeatAlongLine: 0
+    pitch: 0
+  - sprite: {fileID: 21300000, guid: 325f0e47e7cc857469594c9a565a698c, type: 3}
+    title: "\xC1rbol 12"
+    category: 0
+    repeatAlongLine: 0
+    pitch: 0
+  - sprite: {fileID: 21300000, guid: c2157874f8d6a8f478282a3188e3ed99, type: 3}
+    title: "\xC1rbol 13"
+    category: 0
+    repeatAlongLine: 0
+    pitch: 0
+  - sprite: {fileID: 21300000, guid: 8a61844d491f65a42b65c54878f2d5fd, type: 3}
+    title: "\xC1rbol 14"
+    category: 0
+    repeatAlongLine: 0
+    pitch: 0
+  - sprite: {fileID: 21300000, guid: 4a01c666821c0cb41b04d1a8e448b799, type: 3}
+    title: "\xC1rbol 15"
+    category: 0
+    repeatAlongLine: 0
+    pitch: 0
+  - sprite: {fileID: 21300000, guid: e39ef8bc6bc69474db30fc37f6e7c7b6, type: 3}
+    title: "\xC1rbol 16"
+    category: 0
+    repeatAlongLine: 0
+    pitch: 0
+  - sprite: {fileID: 21300000, guid: b4bb3efe3b876694fbe576812a13820d, type: 3}
+    title: "\xC1rbol 17"
+    category: 0
+    repeatAlongLine: 0
+    pitch: 0
+  - sprite: {fileID: 21300000, guid: b90e3031431e6064198fc674ebb3a704, type: 3}
+    title: "\xC1rbol 18"
+    category: 0
+    repeatAlongLine: 0
+    pitch: 0
+  - sprite: {fileID: 21300000, guid: d7e9852ab4731ac43b01629472bf1701, type: 3}
+    title: "\xC1rbol 19"
+    category: 0
+    repeatAlongLine: 0
+    pitch: 0
+  - sprite: {fileID: 21300000, guid: 57695df94fa7fe04ba5bf4a8dafe9e05, type: 3}
+    title: Roca 07
+    category: 1
+    repeatAlongLine: 0
+    pitch: 0
+  - sprite: {fileID: 21300000, guid: 41f63a8a5bc41964999f59878bc8844b, type: 3}
+    title: Roca 08
+    category: 1
+    repeatAlongLine: 0
+    pitch: 0
+  - sprite: {fileID: 21300000, guid: bcdf80e4d3d655f409407f8d019db09b, type: 3}
+    title: Roca 09
+    category: 1
+    repeatAlongLine: 0
+    pitch: 0
+  - sprite: {fileID: 21300000, guid: 9f266d5308034484cba3b13678460523, type: 3}
+    title: Roca 10
+    category: 1
+    repeatAlongLine: 0
+    pitch: 0
+  - sprite: {fileID: 21300000, guid: 2fa412cf0121e6b4194cc4f5fbe0308a, type: 3}
+    title: Roca 11
+    category: 1
+    repeatAlongLine: 0
+    pitch: 0
+  - sprite: {fileID: 21300000, guid: b2e57bdf35fdbbe4199dfc0fd7cb792d, type: 3}
+    title: Roca 12
+    category: 1
+    repeatAlongLine: 0
+    pitch: 0
+  - sprite: {fileID: 21300000, guid: 0cee83fa95005b14e8a4d706810824c6, type: 3}
+    title: "C\xE9sped"
+    category: 2
+    repeatAlongLine: 0
+    pitch: 0
+  - sprite: {fileID: 21300000, guid: 2a5a73100b89be440bda0282911a26c5, type: 3}
+    title: Arco de entrada
+    category: 4
+    repeatAlongLine: 0
+    pitch: 0
+  - sprite: {fileID: 21300000, guid: fe225863bd3f6734eb355ffee8d50793, type: 3}
+    title: Pared de ladrillos
+    category: 4
+    repeatAlongLine: 1
+    pitch: 0
+  - sprite: {fileID: 21300000, guid: 702e4ff951417ea42a9c7e0e45bc7a53, type: 3}
+    title: Cercas
+    category: 4
+    repeatAlongLine: 1
+    pitch: 0
+  - sprite: {fileID: 21300000, guid: 267ad9d738f8da549b5c040e753e3c2b, type: 3}
+    title: Cartel
+    category: 4
+    repeatAlongLine: 0
+    pitch: 0
+  - sprite: {fileID: 21300000, guid: 5fb84ab6b62a5f445a13d5341fcb5996, type: 3}
+    title: Flor 01
+    category: 5
+    repeatAlongLine: 0
+    pitch: -25
+  - sprite: {fileID: 21300000, guid: ca25815570ea6bc48808b6c42a26fd32, type: 3}
+    title: Flor 02
+    category: 5
+    repeatAlongLine: 0
+    pitch: -25
+  - sprite: {fileID: 21300000, guid: 8dc75c52867cd0a419f9a1497141f92b, type: 3}
+    title: Flor 03
+    category: 5
+    repeatAlongLine: 0
+    pitch: -25
+  - sprite: {fileID: 21300000, guid: 6686efef76fd8014bb420162cb209380, type: 3}
+    title: Hoja
+    category: 3
+    repeatAlongLine: 0
+    pitch: 0
+  - sprite: {fileID: 21300000, guid: fa07fe3ea2005ed478526d5b0a480742, type: 3}
+    title: Uiseleccion
+    category: 3
+    repeatAlongLine: 0
+    pitch: 0

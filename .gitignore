@@ -1,0 +1,24 @@
+# Unity-generated files and local state
+[Ll]ibrary/
+[Tt]emp/
+[Oo]bj/
+[Ll]ogs/
+[Uu]ser[Ss]ettings/
+[Bb]uild/
+[Bb]uilds/
+.vs/
+.idea/
+*.csproj
+*.sln
+*.slnx
+*.user
+*.pidb
+*.pdb
+*.opendb
+*.VC.db
+.DS_Store
+Thumbs.db
+.env
+.env.*
+!.env.example
+Assets/Editor/PixelMapWorkshopRecovery/

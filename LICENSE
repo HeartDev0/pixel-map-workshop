@@ -1,0 +1,75 @@
+HeartDev Pixel Map Workshop — Commercial Use with Attribution License 1.0
+SPDX-License-Identifier: LicenseRef-HeartDev-Commercial-Attribution-NoRedistribution-1.0
+Copyright (c) 2026 HeartDev. All rights reserved.
+
+1. SCOPE
+This custom, source-available license covers the original tool source, editor UI,
+icons, shaders and documentation in this repository, except material expressly
+covered by LICENSE-EXAMPLES.txt or THIRD_PARTY_NOTICES.md. It is not an open-source
+license. "Tool" means Pixel Map Workshop and its authoring functionality.
+"Output" means maps, meshes, textures and other work you create with the Tool
+using assets that you own or have separately licensed.
+
+2. PERMITTED USE
+You may download, install, execute and privately modify the Tool to create your
+own commercial or noncommercial projects, provided you comply with attribution.
+You may make only the local, build, version-control and backup copies reasonably
+necessary for that use. Your employees and contractors may access such private
+copies solely on your behalf, under these same restrictions. This is not a right
+to sublicense, assign or transfer this license or distribute the Tool to others.
+
+3. YOUR OUTPUT AND EMBEDDED RUNTIME SHADERS
+You retain your rights in your own Output. You may sell, publish, distribute and
+otherwise commercially exploit your own Output, including in games and client
+projects. You may include the Tool's runtime shaders in compiled/embedded form
+only as necessary to display that Output in an end-user project. That exception
+does not permit distribution of editor code, a reusable shader/source package,
+the Tool itself, or an editor/map-authoring product derived from it. Your Output
+must not contain the restricted example assets unless separately licensed.
+
+4. REQUIRED ATTRIBUTION
+Each distributed project made using the Tool must contain a reasonably visible
+credit in its credits, About screen, bundled NOTICE or accompanying documentation:
+"Maps created with Pixel Map Workshop by HeartDev —
+https://github.com/HeartDev0/pixel-map-workshop"
+An equivalent translated credit identifying the Tool, HeartDev and that URL is
+acceptable. Do not remove existing ownership/license notices from private copies.
+
+5. PROHIBITED USES
+Except for sections 2, 3 and 6, you may not reproduce, republish, redistribute,
+mirror, sublicense, assign, transfer, lend, rent or sell the Tool or any of its
+source, modified versions or substantial portions, whether free or for payment.
+You may not publish source copies outside the limited GitHub exception below,
+resell or repackage the Tool, bundle it into asset/tool packs, distribute it to
+clients as a tool, offer it as a hosted authoring service, or publish a competing
+or derivative authoring tool containing its code. Private modifications do not
+create a right to distribute the Tool or license it under different terms.
+
+6. GITHUB PLATFORM EXCEPTION
+The rights required by GitHub's applicable terms to host, display and fork this
+public repository within GitHub are expressly preserved. A GitHub fork does not
+grant any additional rights to sell, sublicense or redistribute the Tool outside
+that platform, or to use the restricted artwork in a project. Repository
+downloads/clones are allowed only for the uses otherwise permitted here. Nothing
+in this license purports to revoke rights GitHub's applicable terms require.
+
+7. RESTRICTED EXAMPLES AND THIRD-PARTY MATERIAL
+Example sprites, sample maps, rendered examples and screenshots are governed by
+LICENSE-EXAMPLES.txt, not by the commercial-use permission above. Third-party
+material remains subject to its own rights and notices. No rights in Unity,
+third-party trademarks or third-party content are granted by this license.
+
+8. TERMINATION
+Permissions terminate if you materially breach these conditions and do not cure
+that breach within 30 days after written notice from the rights holder. Upon
+termination, stop using and distributing the Tool and delete unauthorized copies.
+Rights already granted to end users in compliant, previously distributed Output
+are not revoked solely by that termination. The attribution and restrictions on
+restricted assets remain applicable.
+
+9. WARRANTY AND LIABILITY
+To the extent permitted by applicable law, the Tool is provided AS IS, without
+warranties of any kind. The rights holder is not liable for damages arising from
+its use. Mandatory statutory rights and limitations remain unaffected. Rights not
+expressly granted are reserved. For separate permissions contact HeartDev through
+the repository owner's GitHub profile: https://github.com/HeartDev0.
