@@ -86,6 +86,10 @@ namespace HeartDev.MapWorkshop
         // 0 = ordinary paint, 1 = path, 2 = animated water. Old maps remain valid.
         public byte[] surfaces=Array.Empty<byte>();
         public bool pathOutline=true;
+        [Tooltip("Desplaza verticalmente todos los píxeles pintados como camino. Los valores negativos lo entierran y los positivos lo elevan.")]
+        public int pathHeightOffsetPixels;
+        [Tooltip("Ancho, en píxeles, de la transición de altura alrededor del camino. Cero conserva un borde duro.")]
+        public int pathHeightSmoothPixels;
         public int outlinePixels=2;
         public Color outlineColor=new Color32(219,162,106,255);
         public int outlineStyle;
@@ -149,7 +153,72 @@ namespace HeartDev.MapWorkshop
         // Same triangle interpolation as the exported mesh, so props sit on the surface.
         public float SurfaceHeight(float x,float y)
         {
-            return Surface(Index(Mathf.FloorToInt(x),Mathf.FloorToInt(y)))==2?WaterHeight(x,y):RawSurfaceHeight(x,y);
+            if(Surface(Index(Mathf.FloorToInt(x),Mathf.FloorToInt(y)))==2)return WaterHeight(x,y);
+            return RawSurfaceHeight(x,y)+PathHeightOffsetAt(x,y);
+        }
+        public float PathHeightOffsetAt(float x,float y)
+        {
+            if(pathHeightOffsetPixels==0||width<=0||height<=0)return 0;
+            int smooth=Mathf.Clamp(pathHeightSmoothPixels,0,32);
+            if(smooth==0)return Surface(Index(Mathf.FloorToInt(x),Mathf.FloorToInt(y)))==1?pathHeightOffsetPixels/(float)pixelsPerUnit:0;
+
+            int cx=Mathf.FloorToInt(x),cy=Mathf.FloorToInt(y),reach=smooth+1;
+            float nearest=float.PositiveInfinity;
+            for(int py=Mathf.Max(0,cy-reach);py<=Mathf.Min(height-1,cy+reach);py++)
+            for(int px=Mathf.Max(0,cx-reach);px<=Mathf.Min(width-1,cx+reach);px++)
+            {
+                if(Surface(Index(px,py))!=1)continue;
+                float dx=Mathf.Max(0,Mathf.Abs(x-(px+.5f))-.5f),dy=Mathf.Max(0,Mathf.Abs(y-(py+.5f))-.5f);
+                nearest=Mathf.Min(nearest,Mathf.Sqrt(dx*dx+dy*dy));
+                if(nearest<=0)break;
+            }
+            if(float.IsPositiveInfinity(nearest)||nearest>=smooth)return 0;
+            float t=1-nearest/smooth;t=t*t*(3-2*t);
+            return pathHeightOffsetPixels/(float)pixelsPerUnit*t;
+        }
+        public float[] BuildPathHeightWeights()
+        {
+            if(pathHeightOffsetPixels==0||pixels==null||pixels.Length!=width*height)return null;
+            var weights=new float[pixels.Length];
+            int smooth=Mathf.Clamp(pathHeightSmoothPixels,0,32);
+            if(smooth==0)
+            {
+                for(int i=0;i<weights.Length;i++)if(Surface(i)==1)weights[i]=1;
+                return weights;
+            }
+
+            const float diagonal=1.41421356f;
+            float[] distances=new float[pixels.Length];
+            for(int i=0;i<distances.Length;i++)distances[i]=Surface(i)==1?0:float.PositiveInfinity;
+            // Two-pass chamfer distance transform; it stays linear in map size and
+            // avoids a per-vertex neighborhood scan while baking the ground mesh.
+            for(int y=0;y<height;y++)for(int x=0;x<width;x++)
+            {
+                int i=y*width+x;float d=distances[i];
+                if(x>0)d=Mathf.Min(d,distances[i-1]+1);
+                if(y>0)d=Mathf.Min(d,distances[i-width]+1);
+                if(x>0&&y>0)d=Mathf.Min(d,distances[i-width-1]+diagonal);
+                if(x+1<width&&y>0)d=Mathf.Min(d,distances[i-width+1]+diagonal);
+                distances[i]=d;
+            }
+            for(int y=height-1;y>=0;y--)for(int x=width-1;x>=0;x--)
+            {
+                int i=y*width+x;float d=distances[i];
+                if(x+1<width)d=Mathf.Min(d,distances[i+1]+1);
+                if(y+1<height)d=Mathf.Min(d,distances[i+width]+1);
+                if(x+1<width&&y+1<height)d=Mathf.Min(d,distances[i+width+1]+diagonal);
+                if(x>0&&y+1<height)d=Mathf.Min(d,distances[i+width-1]+diagonal);
+                distances[i]=d;
+            }
+            for(int i=0;i<weights.Length;i++)
+            {
+                float d=distances[i];if(d<=0){weights[i]=1;continue;}
+                // Treat the outside half of each pixel as the transition distance,
+                // so even a one-pixel blend visibly softens the path edge.
+                d=Mathf.Max(0,d-.5f);if(d>=smooth)continue;
+                float t=1-d/smooth;weights[i]=t*t*(3-2*t);
+            }
+            return weights;
         }
         public float RawSurfaceHeight(float x,float y)
         {

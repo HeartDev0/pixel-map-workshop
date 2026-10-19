@@ -111,6 +111,8 @@ namespace HeartDev.MapWorkshop
                     bank=MaterialFor(bankTexture,result,materials);bank.SetFloat("_TerrainLighting",1);
                 }
                 int step=Mathf.Clamp(map.meshStep,1,16);
+                var pathHeightWeights=map.BuildPathHeightWeights();
+                float pathHeightScale=map.pathHeightOffsetPixels/(float)map.pixelsPerUnit;
                 for(int y0=0;y0<map.height;y0+=ChunkPixels)
                 {
                     int yEnd=Mathf.Min(map.height,y0+ChunkPixels),cols=Mathf.CeilToInt((float)map.width/step),rows=Mathf.CeilToInt((float)(yEnd-y0)/step),stride=cols+1;
@@ -119,7 +121,8 @@ namespace HeartDev.MapWorkshop
                     {
                         int px=Mathf.Min(x*step,map.width),py=Mathf.Min(y0+y*step,yEnd),i=y*stride+x;
                         float vx=(px-map.width*.5f)/map.pixelsPerUnit,vz=(float)py/map.pixelsPerUnit;
-                        vertices[i]=new Vector3(vx,map.RawVertexHeight(px,py)-curvature*((vz-focus)*(vz-focus)+.65f*vx*vx),vz);
+                        float pathWeight=pathHeightWeights!=null?pathHeightWeights[map.Index(px,py)]:0;
+                        vertices[i]=new Vector3(vx,map.RawVertexHeight(px,py)+pathHeightScale*pathWeight-curvature*((vz-focus)*(vz-focus)+.65f*vx*vx),vz);
                         uv[i]=new Vector2((float)px/map.width,(float)py/map.height);
                         if(x<cols&&y<rows){int k=(y*cols+x)*6;triangles[k]=i;triangles[k+1]=i+stride;triangles[k+2]=i+1;triangles[k+3]=i+1;triangles[k+4]=i+stride;triangles[k+5]=i+stride+1;}
                     }
