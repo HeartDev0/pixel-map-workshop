@@ -58,7 +58,7 @@ namespace HeartDev.MapWorkshop
             if(document.decorations.Count>=20000||Hash01(x,y)>density*.16f||!CanPlaceDecoration(x,y))return;
             var candidates=grassOnly?grassCandidates:propCandidates;Sprite chosen=candidates.Count>0?candidates[Mathf.Min(candidates.Count-1,(int)(Hash01(x+831,y+313)*candidates.Count))]:grassOnly?grass:figure;if(chosen==null)return;
             var pixel=new Vector2Int(x,y);if(!occupied.Add(document.Index(x,y)))return;
-            document.decorations.Add(new PixelMapDocument.Decoration{sprite=chosen,pixel=pixel,grass=grassOnly||IsGrassSprite(chosen),pitch=DefaultPropPitch(chosen),layerId=activeLayerId});IndexPlacement(pixel);
+            document.decorations.Add(new PixelMapDocument.Decoration{sprite=chosen,pixel=pixel,grass=grassOnly||IsGrassSprite(chosen),algae=IsAlgaeSprite(chosen),pitch=DefaultPropPitch(chosen),layerId=activeLayerId});IndexPlacement(pixel);
         }
         private void StampDecoration(Vector2Int center)
         {

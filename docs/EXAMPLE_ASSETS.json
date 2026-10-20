@@ -244,5 +244,71 @@
     "title": "Uiseleccion",
     "width": 10,
     "height": 12
+  },
+  {
+    "file": "Props/42_Alga01.png",
+    "title": "Alga 01",
+    "width": 9,
+    "height": 63
+  },
+  {
+    "file": "Props/43_Alga02.png",
+    "title": "Alga 02",
+    "width": 9,
+    "height": 63
+  },
+  {
+    "file": "Props/44_Alga03.png",
+    "title": "Alga 03",
+    "width": 9,
+    "height": 67
+  },
+  {
+    "file": "Props/45_CespedVariante01.png",
+    "title": "Césped alto 01",
+    "width": 15,
+    "height": 50
+  },
+  {
+    "file": "Props/46_CespedVariante02.png",
+    "title": "Césped alto 02",
+    "width": 15,
+    "height": 56
+  },
+  {
+    "file": "Props/47_CespedVariante03.png",
+    "title": "Césped alto 03",
+    "width": 15,
+    "height": 46
+  },
+  {
+    "file": "Props/48_CespedVariante04.png",
+    "title": "Césped alto 04",
+    "width": 15,
+    "height": 46
+  },
+  {
+    "file": "Props/49_CespedVariante05.png",
+    "title": "Césped alto 05",
+    "width": 9,
+    "height": 62
+  },
+  {
+    "file": "Props/50_Flor04.png",
+    "title": "Flor 04",
+    "width": 3,
+    "height": 3
+  },
+  {
+    "file": "Props/51_Flor05.png",
+    "title": "Flor 05",
+    "width": 3,
+    "height": 3
+  },
+  {
+    "file": "Props/52_Flor06.png",
+    "title": "Flor 06",
+    "width": 3,
+    "height": 3
   }
 ]

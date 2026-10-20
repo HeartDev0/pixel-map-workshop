@@ -15,6 +15,7 @@ namespace HeartDev.MapWorkshop
             public Sprite sprite;
             public Vector2Int pixel;
             public bool grass;
+            public bool algae;
             public float yaw;
             public float pitch;
             public bool customPitch;
@@ -111,6 +112,7 @@ namespace HeartDev.MapWorkshop
         public bool riverBankEqualBands=true;
         public int riverTopBandPixels=1,riverMiddleBandPixels=1;
         public float grassSwayPixels=1,grassWindFPS=8;
+        [Min(0)] public float algaeSwayPixels=4,algaeSwaySpeed=.55f,algaeWaveCycles=1.5f;
         public List<Decoration> decorations=new List<Decoration>();
         [Range(0,90)] public float flowerTilt=55;
         public List<Sprite> flowerSprites=new List<Sprite>();
@@ -139,6 +141,7 @@ namespace HeartDev.MapWorkshop
             for(int i=layers.Count-1;i>=0;i--){var layer=layers[i];if(layer.visible&&layer.pixels.Length==pixels.Length&&layer.pixels[index].a>0&&PixelMapPatterns.Covers(layer,index))return layer;}return null;
         }
         public bool DecorationVisible(Decoration prop)=>string.IsNullOrEmpty(prop.layerId)||layers.Exists(l=>l.id==prop.layerId&&l.visible);
+        public bool IsAlgae(Decoration prop)=>prop!=null&&(prop.algae||prop.sprite!=null&&prop.sprite.name.StartsWith("Alga",StringComparison.OrdinalIgnoreCase));
         public PaintLayer AddLayer(string title)
         {
             var layer=new PaintLayer{name=title,pixels=new Color32[pixels.Length],surfaces=new byte[pixels.Length]};layers.Add(layer);return layer;

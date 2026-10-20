@@ -9,7 +9,7 @@ namespace HeartDev.MapWorkshop
     [CreateAssetMenu(menuName="HeartDev/Map Workshop/Paleta de props",fileName="PropPalette")]
     public sealed class PixelMapPropLibrary : ScriptableObject
     {
-        public enum Category { Arboles,Rocas,Cesped,Otros,Construccion,Flores }
+        public enum Category { Arboles,Rocas,Cesped,Otros,Construccion,Flores,Algas }
         [Serializable] public sealed class Entry
         {
             public Sprite sprite;

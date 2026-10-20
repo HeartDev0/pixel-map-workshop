@@ -218,3 +218,58 @@ MonoBehaviour:
     category: 3
     repeatAlongLine: 0
     pitch: 0
+  - sprite: {fileID: 21300000, guid: 538fc449e70609e4bbc4321b05637716, type: 3}
+    title: "Alga 01"
+    category: 6
+    repeatAlongLine: 0
+    pitch: 0
+  - sprite: {fileID: 21300000, guid: 8288be339ba0ec2499c57db7485b5af5, type: 3}
+    title: "Alga 02"
+    category: 6
+    repeatAlongLine: 0
+    pitch: 0
+  - sprite: {fileID: 21300000, guid: cfe138f0a001b7740a6d16933c894d6f, type: 3}
+    title: "Alga 03"
+    category: 6
+    repeatAlongLine: 0
+    pitch: 0
+  - sprite: {fileID: 21300000, guid: 136885f4be158a54da4339d6bef27f8b, type: 3}
+    title: "Césped alto 01"
+    category: 2
+    repeatAlongLine: 0
+    pitch: 0
+  - sprite: {fileID: 21300000, guid: c09b9dff29bea2048b77dae86ea32676, type: 3}
+    title: "Césped alto 02"
+    category: 2
+    repeatAlongLine: 0
+    pitch: 0
+  - sprite: {fileID: 21300000, guid: 14c234cd5f3a2274e98dd3c88d35ddf9, type: 3}
+    title: "Césped alto 03"
+    category: 2
+    repeatAlongLine: 0
+    pitch: 0
+  - sprite: {fileID: 21300000, guid: 56452c4b9efd6cc45b2e6399741d07a5, type: 3}
+    title: "Césped alto 04"
+    category: 2
+    repeatAlongLine: 0
+    pitch: 0
+  - sprite: {fileID: 21300000, guid: f08f8ac2ba48ebe4688f03d86f36d157, type: 3}
+    title: "Césped alto 05"
+    category: 2
+    repeatAlongLine: 0
+    pitch: 0
+  - sprite: {fileID: 21300000, guid: 3b5418b23a228dd44873a4e11f42ea59, type: 3}
+    title: "Flor 04"
+    category: 5
+    repeatAlongLine: 0
+    pitch: -25
+  - sprite: {fileID: 21300000, guid: 5fa60ed7ba8590b4ca8fbd82f20834af, type: 3}
+    title: "Flor 05"
+    category: 5
+    repeatAlongLine: 0
+    pitch: -25
+  - sprite: {fileID: 21300000, guid: d6bbe1370855fb645a72e83954ec4d87, type: 3}
+    title: "Flor 06"
+    category: 5
+    repeatAlongLine: 0
+    pitch: -25

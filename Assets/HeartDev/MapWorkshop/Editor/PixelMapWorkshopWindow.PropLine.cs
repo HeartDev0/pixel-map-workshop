@@ -84,7 +84,7 @@ namespace HeartDev.MapWorkshop
                 {
                     if(map.decorations.Count>=20000)break;
                     if(map.decorations.Exists(p=>p.sprite==sprite&&p.pixel==point&&p.layerId==layer.id&&Mathf.Abs(Mathf.DeltaAngle(p.yaw,angle))<.1f))continue;
-                    map.decorations.Add(new PixelMapDocument.Decoration{sprite=sprite,pixel=point,layerId=layer.id,yaw=angle,pitch=DefaultPropPitch(sprite)});
+                    map.decorations.Add(new PixelMapDocument.Decoration{sprite=sprite,pixel=point,layerId=layer.id,yaw=angle,algae=IsAlgaeSprite(sprite),pitch=DefaultPropPitch(sprite)});
                 }
             },"Colocar línea de props");RefreshLayers();
         }

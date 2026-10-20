@@ -155,23 +155,116 @@ namespace HeartDev.MapWorkshop
                 faces.Emit("Waterfall_"+index,material,result,false);
             }
         }
+        internal static List<Sprite> AmbientSprites(PixelMapDocument.AmbientZone zone)
+        {
+            var sprites=new List<Sprite>();if(zone.sprite!=null)sprites.Add(zone.sprite);
+            if(zone.spriteVariants!=null)foreach(var sprite in zone.spriteVariants)if(sprite!=null&&!sprites.Contains(sprite)&&sprites.Count<4)sprites.Add(sprite);
+            return sprites;
+        }
+        internal static PixelMapDocument.AmbientMotion AmbientMotionFor(PixelMapDocument.AmbientZone zone)
+        {
+            if(zone.motion!=PixelMapDocument.AmbientMotion.Personalizado)return zone.motion;
+            return PixelMapAmbientPresets.All.FirstOrDefault(p=>p.name==zone.preset)?.motion??PixelMapDocument.AmbientMotion.Personalizado;
+        }
+        private static int AmbientCount(PixelMapDocument.AmbientZone zone)=>zone.enabled?Mathf.Clamp(Mathf.RoundToInt(Mathf.Clamp(zone.maxParticles,1,64)*Mathf.Clamp(zone.intensity,0,2)),0,64):0;
+        public static void RefreshAmbientZones(PixelMapDocument map,float curvature,float focus,Result result)
+        {
+            using(var updated=new Result{root=new GameObject("AmbientRefresh"){hideFlags=HideFlags.HideAndDontSave}})
+            {
+                BuildAmbientZones(map,curvature,focus,updated);
+                int oldCount=result.ambientSystems.Count;
+                foreach(var ps in result.ambientSystems)if(ps!=null)
+                {
+                    var material=ps.GetComponent<ParticleSystemRenderer>().sharedMaterial;
+                    if(material!=null&&result.owned.Remove(material))UnityEngine.Object.DestroyImmediate(material);
+                    UnityEngine.Object.DestroyImmediate(ps.gameObject);
+                }
+                result.ambientSystems.Clear();
+                while(updated.root.transform.childCount>0)updated.root.transform.GetChild(0).SetParent(result.root.transform,false);
+                result.ambientSystems.AddRange(updated.ambientSystems);result.owned.AddRange(updated.owned);updated.owned.Clear();
+                result.drawGroups+=updated.drawGroups-oldCount;result.animatedClouds|=updated.animatedClouds;
+            }
+        }
         private static void BuildAmbientZones(PixelMapDocument map,float curvature,float focus,Result result)
         {
-            for(int i=0;i<map.ambientZones.Count;i++)
+            var counts=map.ambientZones.Select(z=>AmbientSprites(z).Count>0?AmbientCount(z):0).ToArray();
+            int total=counts.Sum(),budget=Mathf.Clamp(map.ambientParticleBudget,1,2048),prefix=0;
+            for(int i=0;i<counts.Length;i++)
             {
-                var zone=map.ambientZones[i];if(zone.sprite==null)continue;
-                var go=new GameObject("AmbientZone_"+i);go.transform.SetParent(result.root.transform,false);
-                var center=zone.area.center;go.transform.localPosition=Bend(new Vector3((center.x-map.width*.5f)/map.pixelsPerUnit,map.RawSurfaceHeight(center.x,center.y)+zone.heightPixels*.5f/map.pixelsPerUnit,center.y/map.pixelsPerUnit),curvature,focus);
-                var ps=go.AddComponent<ParticleSystem>();ps.Stop(true,ParticleSystemStopBehavior.StopEmittingAndClear);ps.useAutoRandomSeed=false;ps.randomSeed=(uint)(map.seed+i+1);
-                var main=ps.main;main.loop=true;main.prewarm=true;main.playOnAwake=true;main.duration=Mathf.Max(1,zone.lifetime);main.startLifetime=Mathf.Max(1,zone.lifetime);main.maxParticles=Mathf.Clamp(zone.maxParticles,1,64);main.startSpeed=0;var tint=zone.tint;tint.a*=Mathf.Clamp01(zone.opacity);main.startColor=tint;main.startSize3D=true;main.startSizeX=zone.sprite.rect.width/(float)map.pixelsPerUnit*Mathf.Max(.1f,zone.size);main.startSizeY=zone.sprite.rect.height/(float)map.pixelsPerUnit*Mathf.Max(.1f,zone.size);main.startSizeZ=1;main.simulationSpace=ParticleSystemSimulationSpace.Local;main.scalingMode=ParticleSystemScalingMode.Hierarchy;main.cullingMode=ParticleSystemCullingMode.Pause;
-                var shape=ps.shape;shape.shapeType=ParticleSystemShapeType.Box;shape.scale=new Vector3(zone.area.width/(float)map.pixelsPerUnit,zone.heightPixels/(float)map.pixelsPerUnit,zone.area.height/(float)map.pixelsPerUnit);
-                var emission=ps.emission;emission.rateOverTime=main.maxParticles/Mathf.Max(1,zone.lifetime);
-                var velocity=ps.velocityOverLifetime;velocity.enabled=true;velocity.space=ParticleSystemSimulationSpace.Local;var drift=zone.customMotion?zone.velocity*zone.speed:new Vector3(zone.speed,-zone.speed*.15f,zone.speed*.2f);velocity.x=drift.x;velocity.y=drift.y;velocity.z=drift.z;
-                var rotation=ps.rotationOverLifetime;rotation.enabled=true;rotation.z=zone.spin;
-                var noise=ps.noise;noise.enabled=zone.turbulence>0;noise.strength=zone.turbulence;noise.frequency=.35f;noise.scrollSpeed=.15f;noise.octaveCount=1;noise.quality=ParticleSystemNoiseQuality.Low;
-                var fade=ps.colorOverLifetime;fade.enabled=true;var gradient=new Gradient();gradient.SetKeys(new[]{new GradientColorKey(Color.white,0),new GradientColorKey(Color.white,1)},new[]{new GradientAlphaKey(0,0),new GradientAlphaKey(1,.15f),new GradientAlphaKey(1,.8f),new GradientAlphaKey(0,1)});if(zone.flicker)gradient.SetKeys(new[]{new GradientColorKey(Color.white,0),new GradientColorKey(Color.white,1)},new[]{new GradientAlphaKey(0,0),new GradientAlphaKey(1,.12f),new GradientAlphaKey(.15f,.3f),new GradientAlphaKey(1,.5f),new GradientAlphaKey(.1f,.7f),new GradientAlphaKey(1,.85f),new GradientAlphaKey(0,1)});fade.color=gradient;
-                var material=new Material(Shader.Find("HeartDev/MapWorkshop/AmbientSprite")){name="AmbientZone_"+i,mainTexture=zone.sprite.texture};var uv=SpriteRectUV(zone.sprite);material.SetVector("_SpriteRect",new Vector4(uv[0].x,uv[0].y,uv[2].x-uv[0].x,uv[2].y-uv[0].y));result.owned.Add(material);
-                var renderer=go.GetComponent<ParticleSystemRenderer>();renderer.sharedMaterial=material;renderer.renderMode=ParticleSystemRenderMode.Billboard;renderer.shadowCastingMode=ShadowCastingMode.Off;renderer.receiveShadows=false;
+                int count=counts[i];
+                if(total>budget)count=(int)((long)(prefix+counts[i])*budget/total)-(int)((long)prefix*budget/total);
+                prefix+=counts[i];if(count>0)BuildAmbientZone(map,map.ambientZones[i],i,curvature,focus,result,count);
+            }
+        }
+        public static Result BuildAmbientPreview(PixelMapDocument map,PixelMapDocument.AmbientZone zone,float curvature,float focus)
+        {
+            var result=new Result();
+            try
+            {
+                result.root=new GameObject("AmbientPresetPreview"){hideFlags=HideFlags.HideAndDontSave};
+                int count=Mathf.Min(AmbientCount(zone),Mathf.Clamp(map.ambientParticleBudget,1,2048));
+                if(count>0)BuildAmbientZone(map,zone,0,curvature,focus,result,count);return result;
+            }
+            catch{result.Dispose();throw;}
+        }
+        private static ParticleSystem.MinMaxCurve AmbientRange(float value,float variation)
+        {
+            float a=value*(1-variation),b=value*(1+variation);return new ParticleSystem.MinMaxCurve(Mathf.Min(a,b),Mathf.Max(a,b));
+        }
+        private static void BuildAmbientZone(PixelMapDocument map,PixelMapDocument.AmbientZone zone,int index,float curvature,float focus,Result result,int count)
+        {
+            var sprites=AmbientSprites(zone);if(sprites.Count==0)return;
+            var motion=AmbientMotionFor(zone);
+            bool falling=motion==PixelMapDocument.AmbientMotion.Otono||motion==PixelMapDocument.AmbientMotion.Petalos||motion==PixelMapDocument.AmbientMotion.Nieve||motion==PixelMapDocument.AmbientMotion.Ventisca||motion==PixelMapDocument.AmbientMotion.Lluvia;
+            bool rising=motion==PixelMapDocument.AmbientMotion.Burbujas||motion==PixelMapDocument.AmbientMotion.Ceniza||motion==PixelMapDocument.AmbientMotion.Brasas;
+            bool gust=motion==PixelMapDocument.AmbientMotion.Rafagas||motion==PixelMapDocument.AmbientMotion.Ventisca;
+            bool glow=motion==PixelMapDocument.AmbientMotion.Luciernagas||motion==PixelMapDocument.AmbientMotion.Brasas||motion==PixelMapDocument.AmbientMotion.Magia;
+            bool rain=motion==PixelMapDocument.AmbientMotion.Lluvia,bubbles=motion==PixelMapDocument.AmbientMotion.Burbujas,mist=motion==PixelMapDocument.AmbientMotion.Niebla;
+            float variation=Mathf.Clamp01(zone.variation),life=Mathf.Max(1,zone.lifetime),height=Mathf.Max(1,zone.heightPixels)/(float)map.pixelsPerUnit;
+            var center=zone.area.center;var origin=Bend(new Vector3((center.x-map.width*.5f)/map.pixelsPerUnit,map.RawSurfaceHeight(center.x,center.y)+height*.5f,center.y/map.pixelsPerUnit),curvature,focus);
+            var drift=zone.customMotion?zone.velocity*zone.speed:new Vector3(zone.speed,-zone.speed*.15f,zone.speed*.2f);
+            for(int slot=0;slot<sprites.Count;slot++)
+            {
+                int particles=count/sprites.Count+(slot<count%sprites.Count?1:0);if(particles==0)continue;
+                var sprite=sprites[slot];var go=new GameObject("AmbientZone_"+index+"_"+slot);go.transform.SetParent(result.root.transform,false);go.transform.localPosition=origin;
+                var ps=go.AddComponent<ParticleSystem>();ps.Stop(true,ParticleSystemStopBehavior.StopEmittingAndClear);ps.useAutoRandomSeed=false;
+                ps.randomSeed=unchecked((uint)(map.seed+index*101+zone.seedOffset*31+slot*17+1));if(ps.randomSeed==0)ps.randomSeed=1;
+                var main=ps.main;main.loop=true;main.prewarm=true;main.playOnAwake=true;main.duration=life;main.startLifetime=AmbientRange(life,variation*.4f);main.maxParticles=particles;main.startSpeed=0;
+                var tint=zone.tint;tint.a*=Mathf.Clamp01(zone.opacity);main.startColor=tint;main.startSize3D=true;
+                main.startSizeX=AmbientRange(sprite.rect.width/(float)map.pixelsPerUnit*Mathf.Max(.1f,zone.size),variation*.5f);
+                main.startSizeY=AmbientRange(sprite.rect.height/(float)map.pixelsPerUnit*Mathf.Max(.1f,zone.size),variation*.5f);main.startSizeZ=1;
+                main.startRotation=rain||bubbles?new ParticleSystem.MinMaxCurve(rain?Mathf.Atan2(drift.x,-drift.y):0):new ParticleSystem.MinMaxCurve(-Mathf.PI,Mathf.PI);
+                main.simulationSpace=ParticleSystemSimulationSpace.Local;main.scalingMode=ParticleSystemScalingMode.Hierarchy;main.cullingMode=ParticleSystemCullingMode.Pause;
+                var shape=ps.shape;shape.shapeType=ParticleSystemShapeType.Box;
+                shape.scale=new Vector3(zone.area.width/(float)map.pixelsPerUnit,falling||rising?Mathf.Max(1f/map.pixelsPerUnit,height*.04f):mist?height*.3f:height,zone.area.height/(float)map.pixelsPerUnit);
+                shape.position=new Vector3(0,falling?height*.48f:rising?-height*.48f:mist?-height*.35f:0,0);
+                var emission=ps.emission;emission.rateOverTime=particles/life;
+                var velocity=ps.velocityOverLifetime;velocity.enabled=true;velocity.space=ParticleSystemSimulationSpace.Local;
+                if(gust)
+                {
+                    var pulse=new AnimationCurve(new Keyframe(0,.4f),new Keyframe(.25f,1.4f),new Keyframe(.6f,.6f),new Keyframe(.85f,1.2f),new Keyframe(1,.45f));
+                    velocity.x=new ParticleSystem.MinMaxCurve(drift.x,pulse);velocity.y=new ParticleSystem.MinMaxCurve(drift.y,pulse);velocity.z=new ParticleSystem.MinMaxCurve(drift.z,pulse);
+                }
+                else{velocity.x=AmbientRange(drift.x,variation);velocity.y=AmbientRange(drift.y,variation);velocity.z=AmbientRange(drift.z,variation);}
+                if(motion==PixelMapDocument.AmbientMotion.Magia)velocity.orbitalY=.16f*zone.speed;
+                var rotation=ps.rotationOverLifetime;rotation.enabled=!rain&&!bubbles&&Mathf.Abs(zone.spin)>0;rotation.z=new ParticleSystem.MinMaxCurve(-Mathf.Abs(zone.spin)*zone.speed,Mathf.Abs(zone.spin)*zone.speed);
+                var noise=ps.noise;noise.enabled=zone.turbulence>0&&!rain;noise.separateAxes=true;noise.strengthX=zone.turbulence;noise.strengthZ=zone.turbulence;
+                noise.strengthY=zone.turbulence*(falling||bubbles?.2f:mist?.1f:.7f);
+                noise.frequency=motion==PixelMapDocument.AmbientMotion.Luciernagas?.8f:bubbles?.45f:mist?.12f:.35f;noise.scrollSpeed=(gust?.4f:.15f)*zone.speed;noise.damping=true;noise.octaveCount=1;noise.quality=ParticleSystemNoiseQuality.Low;
+                var fade=ps.colorOverLifetime;fade.enabled=true;var gradient=new Gradient();
+                var colors=motion==PixelMapDocument.AmbientMotion.Brasas?new[]{new GradientColorKey(Color.white,0),new GradientColorKey(new Color(1,.2f,.04f),1)}:new[]{new GradientColorKey(Color.white,0),new GradientColorKey(Color.white,1)};
+                gradient.SetKeys(colors,new[]{new GradientAlphaKey(0,0),new GradientAlphaKey(1,mist?.25f:rain?.03f:.12f),new GradientAlphaKey(1,mist?.65f:.8f),new GradientAlphaKey(0,1)});
+                if(zone.flicker)gradient.SetKeys(colors,new[]{new GradientAlphaKey(0,0),new GradientAlphaKey(1,.12f),new GradientAlphaKey(.2f,.3f),new GradientAlphaKey(1,.5f),new GradientAlphaKey(.15f,.7f),new GradientAlphaKey(1,.85f),new GradientAlphaKey(0,1)});fade.color=gradient;
+                var size=ps.sizeOverLifetime;size.enabled=bubbles||mist||glow;
+                if(bubbles)size.size=new ParticleSystem.MinMaxCurve(1,AnimationCurve.Linear(0,.65f,1,1.25f));
+                else if(mist)size.size=new ParticleSystem.MinMaxCurve(1,AnimationCurve.Linear(0,.7f,1,1.35f));
+                else if(motion==PixelMapDocument.AmbientMotion.Brasas)size.size=new ParticleSystem.MinMaxCurve(1,AnimationCurve.Linear(0,1,1,.15f));
+                else if(glow)size.size=new ParticleSystem.MinMaxCurve(1,new AnimationCurve(new Keyframe(0,.5f),new Keyframe(.35f,1),new Keyframe(.65f,.7f),new Keyframe(1,.2f)));
+                var material=new Material(Shader.Find("HeartDev/MapWorkshop/AmbientSprite")){name=go.name,mainTexture=sprite.texture};var uv=SpriteRectUV(sprite);material.SetVector("_SpriteRect",new Vector4(uv[0].x,uv[0].y,uv[2].x-uv[0].x,uv[2].y-uv[0].y));
+                material.SetFloat("_Glow",glow?1:0);material.SetInt("_DstBlend",(int)(glow?BlendMode.One:BlendMode.OneMinusSrcAlpha));result.owned.Add(material);
+                var renderer=go.GetComponent<ParticleSystemRenderer>();renderer.sharedMaterial=material;renderer.renderMode=rain?ParticleSystemRenderMode.Stretch:ParticleSystemRenderMode.Billboard;
+                if(rain){renderer.velocityScale=.03f;renderer.lengthScale=1.2f;renderer.cameraVelocityScale=0;}
+                renderer.shadowCastingMode=ShadowCastingMode.Off;renderer.receiveShadows=false;
                 result.ambientSystems.Add(ps);result.animatedClouds=true;result.drawGroups++;
             }
         }

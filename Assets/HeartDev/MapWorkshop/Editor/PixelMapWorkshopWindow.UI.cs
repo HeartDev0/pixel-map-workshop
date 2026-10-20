@@ -93,7 +93,7 @@ namespace HeartDev.MapWorkshop
             grassSettings=Section(controls,"CÉSPED");var densityField=new Slider("Densidad",.02f,1){value=density,showInputField=true};densityField.RegisterValueChangedCallback(e=>density=e.newValue);grassSettings.Add(densityField);
             BuildGrassMotionControls(grassSettings);
             grassSettings.Add(Button("Crear sprite de césped…",()=>{var sprite=CreateGrass();if(sprite!=null){grass=sprite;AddToLibrary(sprite,PixelMapPropLibrary.Category.Cesped);SelectSprite(sprite,"Césped",true);}}));
-            BuildPropGroupControls(controls);BuildPropLineControls(controls);BuildSmartDecorationControls(controls);BuildWorldBuildingControls(controls);BuildExportControls(controls);BuildTerrainFinishControls(controls);BuildAtmosphereControls(controls);BuildSafetyControls(controls);
+            BuildPropGroupControls(controls);BuildPropLineControls(controls);BuildSmartDecorationControls(controls);BuildAlgaeMotionControls(controls);BuildWorldBuildingControls(controls);BuildExportControls(controls);BuildTerrainFinishControls(controls);BuildAtmosphereControls(controls);BuildSafetyControls(controls);
             var advanced=new Foldout{text="Configuración del mapa",value=false};controls.Add(advanced);
             AddInt(advanced,"Nuevo ancho · px",newWidth,v=>newWidth=v);AddInt(advanced,"Nuevo largo · px",newHeight,v=>newHeight=v);AddInt(advanced,"Píxeles / unidad",newPPU,v=>newPPU=v);
             var step=new PopupField<int>("Paso de malla",new List<int>{1,2,4,8,16},document!=null?Mathf.Max(0,new List<int>{1,2,4,8,16}.IndexOf(document.meshStep)):2);
@@ -138,7 +138,7 @@ namespace HeartDev.MapWorkshop
             assets.RegisterCallback<GeometryChangedEvent>(e=>{if(e.newRect.height>0)propsPaneHeight=e.newRect.height;});
             var libField=new ObjectField{objectType=typeof(PixelMapPropLibrary),value=library,allowSceneObjects=false};libField.tooltip="Paleta reutilizable de sprites";libField.RegisterValueChangedCallback(e=>{library=e.newValue as PixelMapPropLibrary;RefreshGallery();});assets.Add(libField);
             var searchField=new ToolbarSearchField{value=search};searchField.RegisterValueChangedCallback(e=>{search=e.newValue;RefreshGallery();});assets.Add(searchField);
-            var categories=new PopupField<string>(new List<string>{"Todos","Árboles","Rocas","Césped","Otros","Construcción","Flores"},Mathf.Clamp(category,0,6));categories.RegisterValueChangedCallback(e=>{category=categories.index;RefreshGallery();});assets.Add(categories);
+            var categories=new PopupField<string>(new List<string>{"Todos","Árboles","Rocas","Césped","Otros","Construcción","Flores","Algas"},Mathf.Clamp(category,0,7));categories.RegisterValueChangedCallback(e=>{category=categories.index;RefreshGallery();});assets.Add(categories);
             libraryCount=new Label();libraryCount.AddToClassList("hint");assets.Add(libraryCount);artRightsNotice=Caption("Props de demostración: solo evaluación en el taller. No se permite usarlos en proyectos.","hint");artRightsNotice.style.color=new Color(1,.75f,.4f);assets.Add(artRightsNotice);
             var libraryScroll=new ScrollView();libraryScroll.AddToClassList("sprite-gallery-scroll");libraryScroll.style.flexGrow=1;assets.Add(libraryScroll);gallery=Row("asset-grid");libraryScroll.Add(gallery);
             var actions=Row();assets.Add(actions);actions.Add(Button("+ Selección",ImportSelection));actions.Add(Button("Nueva paleta…",CreateLibrary));
@@ -190,7 +190,7 @@ namespace HeartDev.MapWorkshop
         }
         private void RefreshGallery()
         {
-            RegisterFlowerSprites();
+            EnsureFlowerProps();RegisterFlowerSprites();
             if(gallery==null)return;if(artRightsNotice!=null)artRightsNotice.style.display=library!=null&&AssetDatabase.GetAssetPath(library).Contains("/Examples/Restricted/")?DisplayStyle.Flex:DisplayStyle.None;gallery.Clear();assetButtons.Clear();
             var entries=library!=null?library.entries:new List<PixelMapPropLibrary.Entry>();
             if(library==null&&document!=null)entries=document.decorations.Where(p=>p.sprite!=null).GroupBy(p=>p.sprite).Select(g=>new PixelMapPropLibrary.Entry{sprite=g.Key,title=g.Key.name,category=g.First().grass?PixelMapPropLibrary.Category.Cesped:PixelMapPropLibrary.Category.Otros}).ToList();

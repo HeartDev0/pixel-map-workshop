@@ -79,6 +79,7 @@ namespace HeartDev.MapWorkshop
                 result.texture=PaintTexture(map);result.owned.Add(result.texture);
                 var materials=new Dictionary<Texture,Material>();
                 var grassMaterials=new Dictionary<Texture,Material>();
+                var algaeMaterials=new Dictionary<Texture,Material>();
                 var terrain=MaterialFor(result.texture,result,materials);
                 var gradients=new PixelMapGradients(map);var gradientTexture=gradients.Texture();result.owned.Add(gradientTexture);
                 result.surfaceMask=PixelMapSurfaces.Mask(map,out result.animatedWater,gradients);result.owned.Add(result.surfaceMask);result.terrainMaterial=terrain;
@@ -162,11 +163,11 @@ namespace HeartDev.MapWorkshop
                     }
                     if(hasReliefPath)BuildPathRelief(map,y0,yEnd,curvature,focus,pathHeightScale,pathHeightWeights,pathMaterial,pathBank,result);
                     // One combined mesh per atlas and strip. Grass never creates a GameObject per blade.
-                    var groups=new Dictionary<(Texture,bool),List<PixelMapDocument.Decoration>>();
+                    var groups=new Dictionary<(Texture,bool,bool),List<PixelMapDocument.Decoration>>();
                     foreach(var prop in map.decorations)
                     {
                         if(prop.shape==PixelMapDocument.PropShape.Caja||prop.sprite==null||!map.DecorationVisible(prop)||prop.pixel.y<y0||prop.pixel.y>=yEnd)continue;
-                        var key=((Texture)prop.sprite.texture,prop.grass);
+                        var key=((Texture)prop.sprite.texture,prop.grass,map.IsAlgae(prop));
                         if(!groups.TryGetValue(key,out var group)){group=new List<PixelMapDocument.Decoration>();groups.Add(key,group);}group.Add(prop);
                     }
                     foreach(var pair in groups)
@@ -175,14 +176,20 @@ namespace HeartDev.MapWorkshop
                         var gradientRows=new List<Vector2>();foreach(var prop in pair.Value){int start=v.Count;AddSprite(map,prop,v,u,motion,t,curvature,focus);byte row=prop.grass?gradients.IndexAt(map.Index(prop.pixel.x,prop.pixel.y)):(byte)0;for(int i=start;i<v.Count;i++)gradientRows.Add(new Vector2(row,0));}
                         var decorationMesh=new Mesh{name="Figures_"+y0+"_"+pair.Key.Item1.name+(pair.Key.Item2?"_Grass":""),indexFormat=v.Count>65535?IndexFormat.UInt32:IndexFormat.UInt16};
                         decorationMesh.SetVertices(v);decorationMesh.SetUVs(0,u);decorationMesh.SetUVs(1,motion);decorationMesh.SetUVs(2,gradientRows);decorationMesh.SetTriangles(t,0);decorationMesh.RecalculateBounds();
-                        if(pair.Key.Item2){var bounds=decorationMesh.bounds;bounds.Expand(new Vector3(2*(map.grassSwayPixels+1)/map.pixelsPerUnit,0,0));decorationMesh.bounds=bounds;}
-                        var propMaterial=MaterialFor(pair.Key.Item1,result,pair.Key.Item2?grassMaterials:materials);
+                        if(pair.Key.Item2||pair.Key.Item3){var swayPixels=pair.Key.Item2?map.grassSwayPixels:map.algaeSwayPixels;var bounds=decorationMesh.bounds;bounds.Expand(new Vector3(2*(swayPixels+1)/map.pixelsPerUnit,0,0));decorationMesh.bounds=bounds;}
+                        var cache=pair.Key.Item2?grassMaterials:pair.Key.Item3?algaeMaterials:materials;
+                        var propMaterial=MaterialFor(pair.Key.Item1,result,cache);
                         if(pair.Key.Item2)
                         {
                             ConfigureGradient(propMaterial,map,gradientTexture,gradients.enabled);propMaterial.SetFloat("_PropGradient",1);propMaterial.name=pair.Key.Item1.name+"_Grass";propMaterial.SetFloat("_ReceiveShadows",0);propMaterial.SetFloat("_GrassSway",map.grassSwayPixels);propMaterial.SetFloat("_WindFPS",map.grassWindFPS);propMaterial.SetFloat("_PixelsPerUnit",map.pixelsPerUnit);
                             if(map.grassSwayPixels>0&&!result.animatedMaterials.Contains(propMaterial)){result.animatedGrass=true;result.animatedMaterials.Add(propMaterial);}
                         }
-                        MeshObject(decorationMesh.name,decorationMesh,propMaterial,result.root.transform,result,pair.Key.Item2);
+                        else if(pair.Key.Item3)
+                        {
+                            propMaterial.name=pair.Key.Item1.name+"_Algae";propMaterial.SetFloat("_ReceiveShadows",1);propMaterial.SetFloat("_AlgaeSway",map.algaeSwayPixels);propMaterial.SetFloat("_AlgaeSpeed",map.algaeSwaySpeed);propMaterial.SetFloat("_AlgaeWaveCycles",map.algaeWaveCycles);propMaterial.SetFloat("_PixelsPerUnit",map.pixelsPerUnit);
+                            if(map.algaeSwayPixels>0&&!result.animatedMaterials.Contains(propMaterial))result.animatedMaterials.Add(propMaterial);
+                        }
+                        MeshObject(decorationMesh.name,decorationMesh,propMaterial,result.root.transform,result,pair.Key.Item2,!pair.Key.Item3);
                     }
                 }
                 BuildBoxProps(map,curvature,focus,result);BuildPlatforms(map,curvature,focus,result);BuildWaterZones(map,curvature,focus,water,result);BuildWaterfalls(map,curvature,focus,result);BuildAmbientZones(map,curvature,focus,result);
@@ -324,7 +331,42 @@ namespace HeartDev.MapWorkshop
             rotation*=Quaternion.Euler(0,prop.yaw,0)*Quaternion.Euler(propPitch,0,0);
             // One source texel always occupies one document pixel, regardless of sprite import PPU.
             float scale=sprite.pixelsPerUnit/map.pixelsPerUnit;
-            int copies=prop.grass||prop.shape==PixelMapDocument.PropShape.Cruzado?2:1;
+            int copies=map.IsAlgae(prop)?1:prop.grass||prop.shape==PixelMapDocument.PropShape.Cruzado?2:1;
+            if(map.IsAlgae(prop))
+            {
+                // Ten height segments resolve the traveling S curve on a single plane (22 vertices).
+                const int rows=10;
+                float minU=float.MaxValue,maxU=float.MinValue,minV=float.MaxValue,maxV=float.MinValue;
+                foreach(var texCoord in spriteUV){minU=Mathf.Min(minU,texCoord.x);maxU=Mathf.Max(maxU,texCoord.x);minV=Mathf.Min(minV,texCoord.y);maxV=Mathf.Max(maxV,texCoord.y);}
+                float phase=Mathf.Repeat(prop.pixel.x*.73f+prop.pixel.y*.47f,6.283185f);
+                for(int copy=0;copy<copies;copy++)
+                {
+                    // One narrow plane with vertical edge loops is enough for the underwater bend.
+                    // Extra columns only multiplied vertices without improving this sprite deformation.
+                    const int columns=1;
+                    int start=vertices.Count,stride=columns+1;
+                    for(int row=0;row<=rows;row++)
+                    {
+                        float v=row/(float)rows,height01=v;
+                        for(int column=0;column<=columns;column++)
+                        {
+                            float u=column/(float)columns;
+                            var point=new Vector2(Mathf.Lerp(minX,maxX,u),Mathf.Lerp(minY,maxY,v));
+                            float dx=(point.x-(minX+maxX)*.5f)*scale,dy=(point.y-minY)*scale;
+                            vertices.Add(foot+rotation*(copy==0?new Vector3(dx,dy,0):new Vector3(0,dy,dx)));
+                            uv.Add(new Vector2(Mathf.Lerp(minU,maxU,u),Mathf.Lerp(minV,maxV,v)));
+                            motion.Add(new Vector2(height01,phase));
+                        }
+                    }
+                    for(int row=0;row<rows;row++)for(int column=0;column<columns;column++)
+                    {
+                        int i=start+row*stride+column;
+                        triangles.Add(i);triangles.Add(i+stride);triangles.Add(i+1);
+                        triangles.Add(i+1);triangles.Add(i+stride);triangles.Add(i+stride+1);
+                    }
+                }
+                return;
+            }
             for(int copy=0;copy<copies;copy++)
             {
                 int start=vertices.Count;
@@ -332,7 +374,7 @@ namespace HeartDev.MapWorkshop
                 {
                     float dx=(point.x-(minX+maxX)*.5f)*scale,dy=(point.y-minY)*scale;
                     vertices.Add(foot+rotation*(copy==0?new Vector3(dx,dy,0):new Vector3(0,dy,dx)));
-                    motion.Add(prop.grass?new Vector2((point.y-minY)/Mathf.Max(.001f,maxY-minY),Mathf.Repeat(prop.pixel.x*.73f+prop.pixel.y*.47f,6.283185f)):Vector2.zero);
+                    motion.Add(prop.grass||map.IsAlgae(prop)?new Vector2((point.y-minY)/Mathf.Max(.001f,maxY-minY),Mathf.Repeat(prop.pixel.x*.73f+prop.pixel.y*.47f,6.283185f)):Vector2.zero);
                 }
                 uv.AddRange(spriteUV);foreach(var index in indices)triangles.Add(start+index);
             }

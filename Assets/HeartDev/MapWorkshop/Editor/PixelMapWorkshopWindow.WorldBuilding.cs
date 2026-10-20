@@ -94,30 +94,50 @@ namespace HeartDev.MapWorkshop
         private void BuildAmbientZoneControls(VisualElement parent)
         {
             var fold=new Foldout{text="Zonas de ambiente",value=false};parent.Add(fold);var content=new VisualElement();
+            var budget=new IntegerField("Presupuesto total de partículas"){value=document!=null?document.ambientParticleBudget:512,tooltip="Máximo simultáneo entre todas las zonas del mapa. Al superarlo, se reparte proporcionalmente."};
+            budget.SetEnabled(document!=null);budget.RegisterValueChangedCallback(e=>{if(document==null)return;int value=Mathf.Clamp(e.newValue,1,2048);budget.SetValueWithoutNotify(value);ChangeAmbient(()=>document.ambientParticleBudget=value,"Presupuesto de ambientes");});fold.Add(budget);
             void Refresh()
             {
-                content.Clear();if(document==null||document.ambientZones.Count==0)return;ambientZoneIndex=Mathf.Clamp(ambientZoneIndex,0,document.ambientZones.Count-1);
-                var picker=new PopupField<string>("Zona",document.ambientZones.Select((z,i)=>(i+1)+" · "+z.name).ToList(),ambientZoneIndex);picker.RegisterValueChangedCallback(e=>{ambientZoneIndex=picker.index;Refresh();});content.Add(picker);var zone=document.ambientZones[ambientZoneIndex];
-                var name=new TextField("Nombre"){value=zone.name};name.RegisterValueChangedCallback(e=>ChangeMap(()=>zone.name=e.newValue,"Nombre ambiente"));content.Add(name);
-                var sprite=new ObjectField("Sprite de partícula"){objectType=typeof(Sprite),value=zone.sprite,allowSceneObjects=false};sprite.RegisterValueChangedCallback(e=>ChangeMap(()=>zone.sprite=e.newValue as Sprite,"Sprite ambiente"));content.Add(sprite);
-                AddWaterColor(content,"Tinte",zone.tint,c=>zone.tint=c);AddInt(content,"Máximo partículas",zone.maxParticles,v=>ChangeMap(()=>zone.maxParticles=Mathf.Clamp(v,1,64),"Cantidad ambiente"));AddInt(content,"Altura · px",zone.heightPixels,v=>ChangeMap(()=>zone.heightPixels=Mathf.Clamp(v,1,256),"Altura ambiente"));
-                var speed=new Slider("Velocidad",0,3){value=zone.speed,showInputField=true};speed.RegisterValueChangedCallback(e=>ChangeMap(()=>zone.speed=e.newValue,"Velocidad ambiente"));content.Add(speed);
-                var life=new Slider("Duración · s",1,20){value=zone.lifetime,showInputField=true};life.RegisterValueChangedCallback(e=>ChangeMap(()=>zone.lifetime=e.newValue,"Duración ambiente"));content.Add(life);
-                var motion=new Toggle("Dirección personalizada"){value=zone.customMotion};motion.RegisterValueChangedCallback(e=>ChangeMap(()=>zone.customMotion=e.newValue,"Dirección de ambiente"));content.Add(motion);
-                var velocity=new Vector3Field("Velocidad X/Y/Z"){value=zone.velocity};velocity.RegisterValueChangedCallback(e=>ChangeMap(()=>{zone.velocity=e.newValue;zone.customMotion=true;},"Vector de ambiente"));content.Add(velocity);
-                AppearanceSlider(content,"Giro · rad/s",-3,3,zone.spin,v=>zone.spin=v);AppearanceSlider(content,"Tamaño",.1f,3,zone.size,v=>zone.size=v);AppearanceSlider(content,"Opacidad",0,1,zone.opacity,v=>zone.opacity=v);AppearanceSlider(content,"Turbulencia",0,.2f,zone.turbulence,v=>zone.turbulence=v);
-                var blink=new Toggle("Destellos"){value=zone.flicker};blink.RegisterValueChangedCallback(e=>ChangeMap(()=>zone.flicker=e.newValue,"Destellos de ambiente"));content.Add(blink);
-                content.Add(Button("Usar selección como nueva área",()=>{if(RequireArea())ChangeMap(()=>zone.area=selectionBounds,"Cambiar área ambiente");}));
-                content.Add(Button("Eliminar zona",()=>{ChangeMap(()=>document.ambientZones.Remove(zone),"Eliminar ambiente");Refresh();}));
+                content.Clear();if(document==null||document.ambientZones.Count==0){content.Add(Caption("Crea una zona desde un preset o selecciona un área para empezar.","hint"));return;}
+                ambientZoneIndex=Mathf.Clamp(ambientZoneIndex,0,document.ambientZones.Count-1);
+                var picker=new PopupField<string>("Zona",document.ambientZones.Select((z,i)=>(i+1)+" · "+z.name+(z.enabled?"":" · apagada")).ToList(),ambientZoneIndex);
+                picker.RegisterValueChangedCallback(e=>{ambientZoneIndex=picker.index;SetAmbientPreset3D(false);previewActiveAmbient=true;ambientActiveToggle?.SetValueWithoutNotify(true);ambientThumbnailSignature=null;Refresh();RequestPreviewRepaint();});content.Add(picker);
+                var zone=document.ambientZones[ambientZoneIndex];
+                var enabled=new Toggle("Ambiente activo"){value=zone.enabled};enabled.RegisterValueChangedCallback(e=>ChangeAmbient(()=>zone.enabled=e.newValue,"Activar ambiente"));content.Add(enabled);
+                var name=new TextField("Nombre"){value=zone.name};name.RegisterValueChangedCallback(e=>ChangeAmbient(()=>zone.name=e.newValue,"Nombre ambiente"));content.Add(name);
+                var behavior=new EnumField("Comportamiento",PixelMapBaker.AmbientMotionFor(zone));behavior.RegisterValueChangedCallback(e=>ChangeAmbient(()=>zone.motion=(PixelMapDocument.AmbientMotion)e.newValue,"Movimiento de ambiente"));content.Add(behavior);
+                var sprite=new ObjectField("Sprite principal"){objectType=typeof(Sprite),value=zone.sprite,allowSceneObjects=false};sprite.RegisterValueChangedCallback(e=>ChangeAmbient(()=>zone.sprite=e.newValue as Sprite,"Sprite ambiente"));content.Add(sprite);
+                var variants=new Foldout{text="Variantes de sprite · hasta 4 en total",value=false};content.Add(variants);
+                for(int i=0;i<3;i++)
+                {
+                    int slot=i;var field=new ObjectField("Variante "+(i+1)){objectType=typeof(Sprite),allowSceneObjects=false,value=zone.spriteVariants!=null&&i<zone.spriteVariants.Count?zone.spriteVariants[i]:null};
+                    field.RegisterValueChangedCallback(e=>ChangeAmbient(()=>{if(zone.spriteVariants==null)zone.spriteVariants=new List<Sprite>();while(zone.spriteVariants.Count<=slot)zone.spriteVariants.Add(null);zone.spriteVariants[slot]=e.newValue as Sprite;},"Variante de ambiente"));variants.Add(field);
+                }
+                void SliderControl(string label,float min,float max,float value,Action<float> set){var slider=new Slider(label,min,max){value=value,showInputField=true};slider.RegisterValueChangedCallback(e=>ChangeAmbient(()=>set(e.newValue),label));content.Add(slider);}
+                SliderControl("Intensidad",0,2,zone.intensity,v=>zone.intensity=v);SliderControl("Variación natural",0,1,zone.variation,v=>zone.variation=v);
+                var tint=new ColorField("Tinte"){value=zone.tint};tint.RegisterValueChangedCallback(e=>ChangeAmbient(()=>zone.tint=e.newValue,"Tinte ambiente"));AddPaletteField(content,tint,"Ambiente · tinte");
+                AddInt(content,"Máximo por zona",zone.maxParticles,v=>ChangeAmbient(()=>zone.maxParticles=Mathf.Clamp(v,1,64),"Cantidad ambiente"));
+                AddInt(content,"Altura · px",zone.heightPixels,v=>ChangeAmbient(()=>zone.heightPixels=Mathf.Clamp(v,1,256),"Altura ambiente"));
+                SliderControl("Velocidad",0,3,zone.speed,v=>zone.speed=v);SliderControl("Duración · s",1,20,zone.lifetime,v=>zone.lifetime=v);
+                var motion=new Toggle("Dirección personalizada"){value=zone.customMotion};motion.RegisterValueChangedCallback(e=>ChangeAmbient(()=>zone.customMotion=e.newValue,"Dirección de ambiente"));content.Add(motion);
+                var velocity=new Vector3Field("Velocidad X/Y/Z"){value=zone.velocity};velocity.RegisterValueChangedCallback(e=>ChangeAmbient(()=>{zone.velocity=e.newValue;zone.customMotion=true;},"Vector de ambiente"));content.Add(velocity);
+                SliderControl("Giro · rad/s",-3,3,zone.spin,v=>zone.spin=v);SliderControl("Tamaño",.1f,3,zone.size,v=>zone.size=v);SliderControl("Opacidad",0,1,zone.opacity,v=>zone.opacity=v);SliderControl("Turbulencia",0,.2f,zone.turbulence,v=>zone.turbulence=v);
+                var blink=new Toggle("Destellos"){value=zone.flicker};blink.RegisterValueChangedCallback(e=>ChangeAmbient(()=>zone.flicker=e.newValue,"Destellos de ambiente"));content.Add(blink);
+                AddInt(content,"Semilla de variación",zone.seedOffset,v=>ChangeAmbient(()=>zone.seedOffset=v,"Semilla ambiente"));
+                content.Add(Button("Usar selección como nueva área",()=>{if(RequireArea())ChangeAmbient(()=>zone.area=selectionBounds,"Cambiar área ambiente");}));
+                var actions=Row();actions.style.flexWrap=Wrap.Wrap;content.Add(actions);
+                actions.Add(Button("Duplicar zona",()=>{if(document.ambientZones.Count>=32){status.text="Límite de 32 zonas de ambiente.";return;}ChangeAmbient(()=>{var copy=JsonUtility.FromJson<PixelMapDocument.AmbientZone>(JsonUtility.ToJson(zone));copy.name=zone.name+" · copia";copy.seedOffset++;document.ambientZones.Add(copy);ambientZoneIndex=document.ambientZones.Count-1;},"Duplicar ambiente");Refresh();}));
+                actions.Add(Button("Eliminar zona",()=>{ChangeAmbient(()=>document.ambientZones.Remove(zone),"Eliminar ambiente");Refresh();}));
             }
-            fold.Add(Caption("Selecciona un área y utiliza uno de tus sprites existentes. Partículas limitadas por zona, con pausa automática fuera de cámara.","hint"));
+            fold.Add(Caption("Efectos reales de Unity. Cada zona tiene su comportamiento, hasta cuatro sprites y pausa fuera de cámara. Los ajustes actualizan solo los ambientes.","hint"));
             BuildAmbientPresets(fold,Refresh);
-            fold.Add(Button("Crear ambiente en selección",()=>{if(!RequireArea())return;if(document.ambientZones.Count>=32){status.text="Límite de 32 zonas de ambiente.";return;}ChangeMap(()=>document.ambientZones.Add(new PixelMapDocument.AmbientZone{name="Ambiente "+(document.ambientZones.Count+1),area=selectionBounds,sprite=figure}),"Crear ambiente");ambientZoneIndex=document.ambientZones.Count-1;Refresh();}));fold.Add(content);Refresh();
+            fold.Add(Button("Crear ambiente en selección",()=>{if(!RequireArea())return;if(document.ambientZones.Count>=32){status.text="Límite de 32 zonas de ambiente.";return;}ChangeAmbient(()=>document.ambientZones.Add(new PixelMapDocument.AmbientZone{name="Ambiente "+(document.ambientZones.Count+1),area=selectionBounds,sprite=figure}),"Crear ambiente");ambientZoneIndex=document.ambientZones.Count-1;Refresh();}));fold.Add(content);Refresh();
         }
         private void UpdateAmbientPreview()
         {
             double now=EditorApplication.timeSinceStartup;float delta=Mathf.Clamp((float)(now-ambientPreviewTime),0,.2f);ambientPreviewTime=now;
             if(pauseAmbience)return;foreach(var ps in model.ambientSystems)if(ps!=null)ps.Simulate(delta,false,false,false);
+            if(ambientPresetModel!=null)foreach(var ps in ambientPresetModel.ambientSystems)if(ps!=null)ps.Simulate(delta,false,false,false);
         }
     }
 }

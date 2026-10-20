@@ -134,3 +134,17 @@ Las zonas de agua, partículas y construcciones se incluyen tanto en la vista 3D
 - **Zonas de ambiente → Biblioteca de ambientes · 15 presets** incluye Brisa de hojas, Ráfaga de viento, Otoño, Pétalos, Polen, Luciérnagas, Polvo de cripta, Nieve suave, Ventisca, Ceniza, Brasas, Lluvia, Burbujas, Niebla baja y Motas mágicas. Los presets contienen ajustes de movimiento, cantidad, color, tamaño, giro, turbulencia y transparencia; usan sprites existentes. Si la biblioteca no tiene un sprite adecuado, asígnalo manualmente antes de aplicar.
 - El visor muestra el preset antes de aplicarlo o, activando **Ver zona activa en el visor**, la configuración de la zona actual. **Aplicar a zona activa** conserva su área; **Crear en selección** crea otra zona. Puedes pausar y mostrar sus límites en 3D.
 - Los clusters de césped heredan el mismo degradado de distancia de la superficie bajo su punto de apoyo, incluida su capa y la intensidad del degradado. Conservan el detalle de sus sprites según la opción de conservar patrón del degradado. Los demás props no heredan este color.
+
+
+## Algas, selección por tipo y ambientes actualizados
+
+- **Seleccionar todos del mismo tipo** está disponible en los controles de props y debajo del visor 3D. Usa el sprite del último prop seleccionado y respeta las capas ocultas, bloqueadas y el filtro de capas editables.
+- **Movimiento submarino · algas** controla amplitud en píxeles, ritmo y cantidad de ondas. Cada alga utiliza un plano con diez tramos verticales (22 vértices). La raíz permanece anclada; la deformación se calcula en el shader.
+- Los quince ambientes tienen comportamientos propios: caída desde arriba, ráfagas, aleteo, deriva suspendida, ascenso desde abajo, crecimiento de burbujas, brasas que se consumen, pulsos luminosos y bancos de niebla.
+- Los dos visores usan partículas reales de Unity. Seleccionar un preset permite probarlo temporalmente en 3D; **Aplicar a zona activa** o **Crear en selección** lo guarda. Sin un sprite compatible, asigna uno de tus recursos.
+- **Mezclar variantes de la paleta** incorpora hasta tres sprites adicionales. Cada preset recuerda su sprite asignado durante la sesión del taller. Intensidad, ritmo y variación natural se prueban antes de aplicar.
+- Cada zona permite activar/desactivar, duplicar, elegir comportamiento, editar variantes y cambiar la semilla. Aplicar un preset conserva su nombre, área y activación.
+- **Presupuesto total de partículas** limita el conjunto del mapa (512 inicialmente). Se reparte proporcionalmente entre las zonas; el máximo por zona sigue siendo 64, compartido entre sus variantes.
+- Editar parámetros ambientales actualiza los emisores sin reconstruir la malla del terreno. Los sprites de origen no se modifican.
+- El área de emisión sigue siendo rectangular. Las zonas actuales usan una altura de referencia en su centro; no se añade colisión automática con el terreno.
+- Los once nuevos sprites incluidos en la biblioteca de ejemplo mantienen la licencia de evaluación: no pueden utilizarse en proyectos.

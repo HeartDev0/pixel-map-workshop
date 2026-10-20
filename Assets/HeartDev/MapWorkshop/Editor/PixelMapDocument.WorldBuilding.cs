@@ -45,11 +45,18 @@ namespace HeartDev.MapWorkshop
             public Vector2Int start,end;
             public int widthPixels=8;
         }
+        public enum AmbientMotion { Personalizado,Hojas,Rafagas,Otono,Petalos,Polen,Luciernagas,Polvo,Nieve,Ventisca,Ceniza,Brasas,Lluvia,Burbujas,Niebla,Magia }
         [Serializable] public sealed class AmbientZone
         {
             public string name="Ambiente";
             public RectInt area;
             public Sprite sprite;
+            public bool enabled=true;
+            public AmbientMotion motion;
+            public List<Sprite> spriteVariants=new List<Sprite>();
+            [Range(0,1)] public float variation=.2f;
+            [Range(0,2)] public float intensity=1;
+            public int seedOffset;
             public Color tint=Color.white;
             public int maxParticles=24,heightPixels=32;
             public float speed=.12f,lifetime=8;
@@ -63,6 +70,7 @@ namespace HeartDev.MapWorkshop
         public List<Platform> platforms=new List<Platform>();
         public List<Waterfall> waterfalls=new List<Waterfall>();
         public List<AmbientZone> ambientZones=new List<AmbientZone>();
+        public int ambientParticleBudget=512;
         public GameObject exportedPrefab;
         public string generationPreset="",generationSeed="";
         public float PropPitch(Decoration prop)=>prop.customPitch?prop.pitch:prop.shape==PropShape.Plano?-90:flowerSprites!=null&&flowerSprites.Contains(prop.sprite)?-flowerTilt:prop.pitch;

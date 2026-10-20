@@ -32,6 +32,10 @@ namespace HeartDev.MapWorkshop
             var mode=new EnumField("En 3D",previewMode);mode.style.flexGrow=1;mode.RegisterValueChangedCallback(e=>{EndStroke();previewMode=(PreviewMode)e.newValue;RequestPreviewRepaint();});row.Add(mode);
             row.Add(new Button(DeletePickedProp){text="Eliminar prop",tooltip="Eliminar el prop seleccionado en 3D"});
             selectedPropLabel=Caption("Botón derecho: girar · rueda: distancia · central: recorrer","hint");parent.Add(selectedPropLabel);
+            selectMatchingPickedPropsButton=Button("Seleccionar todos del mismo tipo",SelectMatchingProps);
+            selectMatchingPickedPropsButton.name="select-matching-picked-props";
+            selectMatchingPickedPropsButton.tooltip="Selecciona los props que usan el mismo sprite en las capas editables del mapa.";
+            parent.Add(selectMatchingPickedPropsButton);UpdateMatchingPropsButtons();
             pickedTransform=new VisualElement();parent.Add(pickedTransform);
             pickedPosition=new UnityEngine.UIElements.Vector2IntField("Posición X/Z · px");pickedPosition.RegisterValueChangedCallback(e=>
             {
@@ -100,6 +104,7 @@ namespace HeartDev.MapWorkshop
         }
         private void UpdatePickedLabel()
         {
+            UpdateMatchingPropsButtons();
             if(selectedPropLabel==null)return;bool selected=document!=null&&selectedProp>=0&&selectedProp<document.decorations.Count;
             selectedPropLabel.text=selected?"Prop: "+document.decorations[selectedProp].sprite.name+" · arrastra: X/Z · Alt + arrastra: altura Y · Mayús + clic: selección múltiple · Gizmo: Mover / GirarX":"En 3D → Props: selecciona un objeto para moverlo o ajustar su altura.";
             if(pickedTransform==null)return;pickedTransform.style.display=selected?DisplayStyle.Flex:DisplayStyle.None;pickedTransform.SetEnabled(selected&&PickedEditable());

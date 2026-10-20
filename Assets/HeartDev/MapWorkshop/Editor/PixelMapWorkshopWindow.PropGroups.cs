@@ -22,6 +22,34 @@ namespace HeartDev.MapWorkshop
         private PixelMapDocument ghostDocument;
         private Label propSelectionInfo;
         private PopupField<string> groupPicker;
+        private Button selectMatchingPropsButton,selectMatchingPickedPropsButton;
+        private Sprite MatchingPropSprite()
+        {
+            if(document==null)return null;
+            if(selectedProp>=0&&selectedProp<document.decorations.Count)return document.decorations[selectedProp].sprite;
+            foreach(int index in selectedProps)if(index>=0&&index<document.decorations.Count&&document.decorations[index].sprite!=null)return document.decorations[index].sprite;
+            return null;
+        }
+        private void UpdateMatchingPropsButtons()
+        {
+            bool available=MatchingPropSprite()!=null;
+            selectMatchingPropsButton?.SetEnabled(available);selectMatchingPickedPropsButton?.SetEnabled(available);
+        }
+        private void SelectMatchingProps()
+        {
+            var sprite=MatchingPropSprite();if(sprite==null)return;
+            int reference=selectedProp;var matches=new List<int>();
+            for(int i=0;i<document.decorations.Count;i++)
+            {
+                var prop=document.decorations[i];if(prop.sprite==sprite&&EditableProp(prop))matches.Add(i);
+            }
+            if(matches.Count==0){if(status!=null)status.text="No hay props de este tipo en las capas editables.";return;}
+            ClearSelection();propsOnlySelection=true;
+            foreach(int index in matches)selectedProps.Add(index);
+            selectedProp=selectedProps.Contains(reference)?reference:matches[0];
+            UpdatePickedLabel();UpdatePropSelectionInfo();RequestPreviewRepaint();
+            if(status!=null)status.text=$"{matches.Count} props del mismo tipo seleccionados: {sprite.name}.";
+        }
         private static PixelMapDocument.Decoration CloneProp(PixelMapDocument.Decoration p)=>JsonUtility.FromJson<PixelMapDocument.Decoration>(JsonUtility.ToJson(p));
         private List<int> EditableSelectedProps()=>selectedProps.Where(i=>i>=0&&i<document.decorations.Count&&EditableProp(document.decorations[i])).OrderBy(i=>i).ToList();
         private void SelectPropsInArea()
@@ -30,13 +58,17 @@ namespace HeartDev.MapWorkshop
             for(int i=0;i<document.decorations.Count;i++){var p=document.decorations[i];if(EditableProp(p)&&SelectionContains(p.pixel.x,p.pixel.y))selectedProps.Add(i);}
             selectedProp=selectedProps.Count>0?selectedProps.First():-1;UpdatePropSelectionInfo();UpdatePickedLabel();RequestPreviewRepaint();
         }
-        private void UpdatePropSelectionInfo(){if(canvas!=null&&document!=null)RefreshPaint();if(propSelectionInfo!=null)propSelectionInfo.text=$"{selectedProps.Count} props seleccionados · Mayús + clic en 3D para añadir o quitar";}
+        private void UpdatePropSelectionInfo(){if(canvas!=null&&document!=null)RefreshPaint();if(propSelectionInfo!=null)propSelectionInfo.text=$"{selectedProps.Count} props seleccionados · Mayús + clic en 3D para añadir o quitar";UpdateMatchingPropsButtons();}
         private void BuildPropGroupControls(VisualElement parent)
         {
             var fold=new Foldout{text="Props · selección y conjuntos",value=false};parent.Add(fold);
             propSelectionInfo=Caption("","hint");fold.Add(propSelectionInfo);UpdatePropSelectionInfo();
             var only=new Toggle("Seleccionar solo props"){value=propsOnlySelection};only.RegisterValueChangedCallback(e=>propsOnlySelection=e.newValue);fold.Add(only);
             fold.Add(Button("Seleccionar props dentro del área",SelectPropsInArea));
+            selectMatchingPropsButton=Button("Seleccionar todos del mismo tipo",SelectMatchingProps);
+            selectMatchingPropsButton.name="select-matching-props";
+            selectMatchingPropsButton.tooltip="Selecciona todos los props con el mismo sprite que el último seleccionado. Respeta las capas ocultas, bloqueadas y el filtro de capas editables.";
+            fold.Add(selectMatchingPropsButton);UpdateMatchingPropsButtons();
             var pivot=new PopupField<string>("Pivote",new List<string>{"Centro del grupo","Cada objeto"},groupPivot?0:1);pivot.RegisterValueChangedCallback(e=>groupPivot=pivot.index==0);fold.Add(pivot);
             var delta=new Vector2IntField("Mover X/Z · px");fold.Add(delta);fold.Add(Button("Aplicar desplazamiento",()=>{TransformSelectedProps(delta.value,0,0,0);delta.SetValueWithoutNotify(Vector2Int.zero);}));
             var lift=new IntegerField("Elevar Y · px");fold.Add(lift);fold.Add(Button("Aplicar altura relativa",()=>{TransformSelectedProps(Vector2Int.zero,lift.value,0,0);lift.SetValueWithoutNotify(0);}));

@@ -28,6 +28,9 @@ Shader "HeartDev/MapWorkshop/PixelMapUnlit"
         _GrassSway ("Grass sway in pixels", Float) = 0
         _WindFPS ("Wind frames per second", Float) = 8
         _PixelsPerUnit ("Pixels per unit", Float) = 32
+        _AlgaeSway ("Algae sway in pixels", Float) = 0
+        _AlgaeSpeed ("Underwater current speed", Float) = .55
+        _AlgaeWaveCycles ("Algae wave cycles", Float) = 1.5
         [HideInInspector] _WaterClock ("Editor preview clock", Float) = -1
         [HideInInspector] _BaseMap ("Shadow silhouette", 2D) = "white" {}
         [HideInInspector] _BaseColor ("Base color", Color) = (1,1,1,1)
@@ -57,7 +60,7 @@ Shader "HeartDev/MapWorkshop/PixelMapUnlit"
             TEXTURE2D(_GradientMap);
             float4 _GradientMap_TexelSize,_GradientRange;
             float4 _MainTex_TexelSize;
-            float _TerrainLighting,_ReceiveShadows,_WaterFPS,_WaterClock,_GrassSway,_WindFPS,_PixelsPerUnit,_SeparateWater,_WaterOnly;
+            float _TerrainLighting,_ReceiveShadows,_WaterFPS,_WaterClock,_GrassSway,_WindFPS,_PixelsPerUnit,_AlgaeSway,_AlgaeSpeed,_AlgaeWaveCycles,_SeparateWater,_WaterOnly;
             half4 _WaterColor,_WaterMiddle,_WaterDeep,_WaterFoam;
             float4 _WaterGradientRange;
             float _WaterPatternSpeed,_WaterPatternPeriod,_FoamStrength,_WaveStrength,_DistanceGradient,_PropGradient;
@@ -69,6 +72,15 @@ Shader "HeartDev/MapWorkshop/PixelMapUnlit"
                 float time=floor(clock*max(1,_WindFPS))/max(1,_WindFPS);
                 float sway=round(sin(time*1.7+v.motion.y)*_GrassSway);
                 v.positionOS.x+=sway/max(1,_PixelsPerUnit)*v.motion.x*v.motion.x;
+                float algaeTime=clock*max(.05,_AlgaeSpeed);
+                float height=saturate(v.motion.x);
+                // Resolve 1.25–2 traveling waves with ten height segments: alternating bends along the stalk.
+                float wavePhase=v.motion.y-height*(clamp(_AlgaeWaveCycles,1.25,2.0)*6.2831853);
+                float algaeWave=.9*sin(algaeTime+wavePhase)+.1*sin(algaeTime*.72+wavePhase+1.1);
+                // Reach useful amplitude near the bottom; only the root is pinned, not the lower half.
+                float algaeEnvelope=smoothstep(0.0,.2,height)*lerp(.65,1.0,height);
+                float algaeBend=algaeWave*_AlgaeSway*algaeEnvelope;
+                v.positionOS.x+=algaeBend/max(1,_PixelsPerUnit);
                 Output o;VertexPositionInputs p=GetVertexPositionInputs(v.positionOS.xyz);
                 o.positionCS=p.positionCS;o.positionWS=p.positionWS;o.uv=v.uv;o.fog=ComputeFogFactor(p.positionCS.z);o.normalWS=TransformObjectToWorldNormal(v.normalOS);o.gradient=v.gradient.x;return o;
             }

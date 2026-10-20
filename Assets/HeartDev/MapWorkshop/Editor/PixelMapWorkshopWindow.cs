@@ -53,7 +53,7 @@ namespace HeartDev.MapWorkshop
             if(patternPreviewTexture!=null)DestroyImmediate(patternPreviewTexture);
             if(cursorTexture!=null)DestroyImmediate(cursorTexture);
             if(selectionTexture!=null)DestroyImmediate(selectionTexture);
-            model?.Dispose();model=null;preview?.Cleanup();preview=null;
+            DisposeAmbientPresetPreview();DisposeAmbientThumbnail();model?.Dispose();model=null;preview?.Cleanup();preview=null;
         }
         private void OnUndo(){selectedProps.Clear();selectedProp=-1;PixelMapPatterns.Clear();BuildInterface();RecordOperation("Deshacer / rehacer");}
 
@@ -64,7 +64,7 @@ namespace HeartDev.MapWorkshop
         {
             if(EditorApplication.isCompiling||EditorApplication.isUpdating)return;
             UpdateSafety();UpdateAmbientUI();
-            if(model!=null&&(model.animatedWater||model.animatedGrass||model.animatedClouds)&&EditorApplication.timeSinceStartup>=nextPreviewRepaint)previewRepaintPending=true;
+            if(model!=null&&(model.animatedWater||model.animatedGrass||model.animatedClouds||ambientPresetModel!=null)&&EditorApplication.timeSinceStartup>=nextPreviewRepaint)previewRepaintPending=true;
             // UI Toolkit may cache an IMGUIContainer while only the 2D image changes.
             // Request an Editor repaint explicitly, capped at 10 updates/sec while painting.
             if(!previewRepaintPending||EditorApplication.timeSinceStartup<nextPreviewRepaint||previewPanel==null||previewPanel.panel==null||workspace==0)return;
@@ -165,7 +165,7 @@ namespace HeartDev.MapWorkshop
             {
                 if(stampGroup){if(touched.Add(document.Index(center.x,center.y)))PlacePropGroup(center);return;}
                 if(smartDecoration){StampDecoration(center);return;}
-                if(figure!=null&&touched.Count==0&&document.decorations.Count<20000){document.decorations.Add(new PixelMapDocument.Decoration{sprite=figure,pixel=center,pitch=DefaultPropPitch(figure),layerId=activeLayerId});touched.Add(document.Index(center.x,center.y));}return;
+                if(figure!=null&&touched.Count==0&&document.decorations.Count<20000){document.decorations.Add(new PixelMapDocument.Decoration{sprite=figure,pixel=center,algae=IsAlgaeSprite(figure),pitch=DefaultPropPitch(figure),layerId=activeLayerId});touched.Add(document.Index(center.x,center.y));}return;
             }
             for(int y=Mathf.Max(0,center.y-radius);y<=Mathf.Min(document.height-1,center.y+radius);y++)for(int x=Mathf.Max(0,center.x-radius);x<=Mathf.Min(document.width-1,center.x+radius);x++)
             {
@@ -206,20 +206,21 @@ namespace HeartDev.MapWorkshop
             var importer=(TextureImporter)AssetImporter.GetAtPath(path);importer.textureType=TextureImporterType.Sprite;importer.spriteImportMode=SpriteImportMode.Single;importer.filterMode=FilterMode.Point;importer.mipmapEnabled=false;importer.textureCompression=TextureImporterCompression.Uncompressed;importer.spritePixelsPerUnit=32;importer.SaveAndReimport();
             return AssetDatabase.LoadAssetAtPath<Sprite>(path);
         }
-        private void ConfigurePreviewRenderer()
+        private void ConfigurePreviewRenderer(Camera target=null)
         {
+            var targetCamera=target??preview.camera;
             var pipeline=UnityEngine.Rendering.GraphicsSettings.currentRenderPipeline as UniversalRenderPipelineAsset;
             if(pipeline==null)return;
             var data=new SerializedObject(pipeline).FindProperty("m_RendererDataList");
             for(int i=0;data!=null&&i<data.arraySize;i++)
             {
                 if(!(data.GetArrayElementAtIndex(i).objectReferenceValue is UniversalRendererData))continue;
-                var cameraData=preview.camera.GetUniversalAdditionalCameraData();
+                var cameraData=targetCamera.GetUniversalAdditionalCameraData();
                 cameraData.SetRenderer(i);cameraData.renderShadows=true;cameraData.renderPostProcessing=false;
                 cameraData.antialiasing=AntialiasingMode.None;cameraData.dithering=false;
                 // URP ignores AdditionalCameraData for CameraType.Preview and uses the
                 // project's default renderer, which is 2D. This isolated camera needs 3D.
-                preview.camera.cameraType=CameraType.Game;
+                targetCamera.cameraType=CameraType.Game;
                 return;
             }
             throw new InvalidOperationException("La vista del taller necesita un renderer Universal 3D en el asset URP.");
@@ -238,10 +239,11 @@ namespace HeartDev.MapWorkshop
                 {
                     var updated=PixelMapBaker.Build(document,curvedPreview?previewCurvature:0,viewPosition*document.height/document.pixelsPerUnit);
                     try{preview.AddSingleGO(updated.root);}catch{updated.Dispose();throw;}
-                    model?.Dispose();model=updated;CachePickMeshes();previewDirty=false;nextModelBuild=EditorApplication.timeSinceStartup+.1;
+                    model?.Dispose();model=updated;DisposeAmbientPresetPreview();CachePickMeshes();previewDirty=false;nextModelBuild=EditorApplication.timeSinceStartup+.1;
                     if(status!=null)status.text=$"{document.decorations.Count} figuras · {model.drawGroups} grupos de dibujo · {model.vertices:N0} vértices";
                 }
                 if(previewDirty)RequestPreviewRepaint();
+                UpdateAmbientPresetPreview();
                 if(model!=null){foreach(var material in model.animatedMaterials)material.SetFloat("_WaterClock",(float)EditorApplication.timeSinceStartup);UpdateAmbientPreview();}
                 float z=viewPosition*document.height;
                 var focus=new Vector3(0,document.SurfaceHeight(document.width*.5f,z),z/document.pixelsPerUnit);

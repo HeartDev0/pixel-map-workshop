@@ -17,12 +17,13 @@
 - Pixel-based terrain heights, smoothing, flattening and canvas expansion.
 - 2D/3D split view, a curved-world preview and adjustable panels with saved layouts.
 - Sprite props, crossed planes, ground planes and textured boxes.
-- Multiple/area prop selection, X rotation, 3D transform gizmos, individual/group pivots and reusable groups.
+- Multiple/area prop selection, select all matching sprites, X rotation, 3D transform gizmos, individual/group pivots and reusable groups.
 - Area decoration with seeded mixes, spacing and water/path exclusions.
 - Editable seed-based starting maps: forest, mountains, archipelago and crypt.
 - Bridges/platforms, separate water zones and animated waterfall strips.
 - Three-color shoreline water, animated foam and terrain distance gradients also inherited by grass clusters.
-- Fifteen configurable ambient presets with previews and limited native particle systems.
+- Fifteen distinct ambient behaviors with real Unity particle previews in both viewers, up to four sprite variants per zone, natural variation and a global particle budget.
+- Underwater algae animated in the shader on a single plane with ten height segments.
 - Prefab baking and updates that preserve the connected prefab's references.
 - Manual saving, an automatic recovery copy and an operation history.
 
@@ -39,6 +40,7 @@ Unity, URP, fonts and unrelated third-party packages are not bundled.
 ## Install
 
 1. Download the official `PixelMapWorkshop-0.1.0.unitypackage` from [Releases](https://github.com/HeartDev0/pixel-map-workshop/releases), or download this repository and copy **`Assets/HeartDev/MapWorkshop`** into your project's `Assets/HeartDev/` directory. Keep the `.meta` files.
+   The repository contains the latest changes; the tagged 0.1.0 package is the original preview.
 2. Install/enable URP and make sure the pipeline asset contains a **Universal Renderer Data** entry for 3D. You may keep a different renderer as your game's default.
 3. Open **Tools → HeartDev → Pixel Map Workshop**.
 4. Click **Nuevo…** and create your own map document. Add your own sprites to a prop library.
@@ -47,7 +49,7 @@ The path `Assets/HeartDev/MapWorkshop` is currently required by the editor's sty
 
 ### Explore the demonstration
 
-Select `Assets/HeartDev/MapWorkshop/Examples/Restricted/NatureMap.asset` and choose **Abrir Map Workshop**. Choose `ExampleProps.asset` in the sprite library field if needed. It contains 41 extracted example sprites, including trees, rocks, fences, a wall, an arch, a sign, flowers, grass and a leaf.
+Select `Assets/HeartDev/MapWorkshop/Examples/Restricted/NatureMap.asset` and choose **Abrir Map Workshop**. Choose `ExampleProps.asset` in the sprite library field if needed. It contains 52 extracted example sprites, including trees, rocks, fences, a wall, an arch, a sign, flowers, grass, algae and a leaf.
 
 **Inspect these examples only inside the workshop. Replace every restricted resource with your own assets before creating or exporting a project you will use or publish.** The UI displays a warning when the restricted example library is selected.
 
