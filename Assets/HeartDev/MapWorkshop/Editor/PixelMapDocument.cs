@@ -86,9 +86,9 @@ namespace HeartDev.MapWorkshop
         // 0 = ordinary paint, 1 = path, 2 = animated water. Old maps remain valid.
         public byte[] surfaces=Array.Empty<byte>();
         public bool pathOutline=true;
-        [Tooltip("Desplaza verticalmente todos los píxeles pintados como camino. Los valores negativos lo entierran y los positivos lo elevan.")]
+        [Tooltip("Excava el camino por debajo del terreno con valores negativos, o crea un resalte con valores positivos. El borde vuelve al nivel original según el suavizado.")]
         public int pathHeightOffsetPixels;
-        [Tooltip("Ancho, en píxeles, de la transición de altura alrededor del camino. Cero conserva un borde duro.")]
+        [Tooltip("Ancho, en píxeles, de la pendiente que conecta el fondo excavado con el terreno original. Cero conserva un corte duro.")]
         public int pathHeightSmoothPixels;
         public int outlinePixels=2;
         public Color outlineColor=new Color32(219,162,106,255);
@@ -156,6 +156,9 @@ namespace HeartDev.MapWorkshop
             if(Surface(Index(Mathf.FloorToInt(x),Mathf.FloorToInt(y)))==2)return WaterHeight(x,y);
             return RawSurfaceHeight(x,y)+PathHeightOffsetAt(x,y);
         }
+        // A path is a terrain cut/fill, like a carved river bed. Its painted mask
+        // defines the floor; smoothing blends surrounding ground back to its
+        // original height rather than moving the path horizontally.
         public float PathHeightOffsetAt(float x,float y)
         {
             if(pathHeightOffsetPixels==0||width<=0||height<=0)return 0;
@@ -214,7 +217,7 @@ namespace HeartDev.MapWorkshop
             {
                 float d=distances[i];if(d<=0){weights[i]=1;continue;}
                 // Treat the outside half of each pixel as the transition distance,
-                // so even a one-pixel blend visibly softens the path edge.
+                // so even a one-pixel blend visibly softens the cut back to grade.
                 d=Mathf.Max(0,d-.5f);if(d>=smooth)continue;
                 float t=1-d/smooth;weights[i]=t*t*(3-2*t);
             }

@@ -55,11 +55,11 @@ namespace HeartDev.MapWorkshop
         {
             surfacePicker=new EnumField("Pintar como",surfaceMode);surfacePicker.RegisterValueChangedCallback(e=>SelectSurface((PaintSurface)e.newValue));parent.Add(surfacePicker);
             pathOptions=new VisualElement();parent.Add(pathOptions);
-            var pathHeight=new SliderInt("Altura global · px (− / +)",-32,32){value=document!=null?Mathf.Clamp(document.pathHeightOffsetPixels,-32,32):0,showInputField=true,tooltip="Negativo entierra el camino; positivo lo eleva sobre el terreno. Se aplica a todos los píxeles marcados como camino."};
-            pathHeight.RegisterValueChangedCallback(e=>ChangeMap(()=>document.pathHeightOffsetPixels=e.newValue,"Altura global del camino"));pathOptions.Add(pathHeight);
-            var pathSmooth=new SliderInt("Suavizado del borde · px",0,16){value=document!=null?Mathf.Clamp(document.pathHeightSmoothPixels,0,16):0,showInputField=true,tooltip="Mezcla gradualmente la altura del camino con el terreno vecino. Cero deja el borde sin transición."};
+            var pathHeight=new SliderInt("Excavar (−) / elevar (+) · px",-32,32){value=document!=null?Mathf.Clamp(document.pathHeightOffsetPixels,-32,32):0,showInputField=true,tooltip="Los valores negativos hunden el camino en el terreno como una zanja; los positivos crean un resalte. Se aplica a todos los píxeles marcados como camino."};
+            pathHeight.RegisterValueChangedCallback(e=>ChangeMap(()=>document.pathHeightOffsetPixels=e.newValue,"Excavación / elevación del camino"));pathOptions.Add(pathHeight);
+            var pathSmooth=new SliderInt("Volver al nivel del terreno · px",0,16){value=document!=null?Mathf.Clamp(document.pathHeightSmoothPixels,0,16):0,showInputField=true,tooltip="Controla cuántos píxeles tarda la hendidura en volver suavemente a la altura original del terreno. Cero deja un corte duro."};
             pathSmooth.RegisterValueChangedCallback(e=>ChangeMap(()=>document.pathHeightSmoothPixels=e.newValue,"Suavizado de altura del camino"));pathOptions.Add(pathSmooth);
-            pathOptions.Add(Caption("Altura negativa = enterrado · positiva = elevado. Suavizado 0 = borde duro.","hint"));
+            pathOptions.Add(Caption("Negativo = hendidura · positivo = resalte. El suavizado normaliza el borde al terreno.","hint"));
             var outlined=new Toggle("Borde del camino"){value=document==null||document.pathOutline};outlined.RegisterValueChangedCallback(e=>ChangeMap(()=>document.pathOutline=e.newValue));pathOptions.Add(outlined);
             var outlineColor=new ColorField("Color del borde"){value=document!=null?document.outlineColor:new Color32(219,162,106,255),showAlpha=false};outlineColor.RegisterValueChangedCallback(e=>ChangeMap(()=>document.outlineColor=e.newValue));AddPaletteField(pathOptions,outlineColor,"Borde del camino");
             var width=new SliderInt("Borde · px",0,8){value=document!=null?document.outlinePixels:2,showInputField=true};width.RegisterValueChangedCallback(e=>ChangeMap(()=>document.outlinePixels=e.newValue));pathOptions.Add(width);
