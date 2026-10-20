@@ -110,9 +110,39 @@ namespace HeartDev.MapWorkshop
                     bankTexture.Apply();result.owned.Add(bankTexture);
                     bank=MaterialFor(bankTexture,result,materials);bank.SetFloat("_TerrainLighting",1);
                 }
-                int step=Mathf.Clamp(map.meshStep,1,16);
-                var pathHeightWeights=map.BuildPathHeightWeights();
+                Material pathMaterial=null,pathBank=null;
                 float pathHeightScale=map.pathHeightOffsetPixels/(float)map.pixelsPerUnit;
+                bool hasReliefPath=pathHeightScale!=0;
+                if(hasReliefPath)
+                {
+                    bool hasPath=false;
+                    for(int i=0;i<map.width*map.height;i++)if(map.Surface(i)==1){hasPath=true;break;}
+                    hasReliefPath=hasPath;
+                }
+                if(hasReliefPath)
+                {
+                    // The road is a separate pixel surface. Cutting its texels from the
+                    // terrain makes the offset read as a real trench or raised platform.
+                    var terrainPixels=result.texture.GetPixels32();
+                    var pathPixels=(Color32[])terrainPixels.Clone();
+                    for(int i=0;i<terrainPixels.Length;i++)
+                    {
+                        if(map.Surface(i)==1)pathPixels[i].a=255;
+                        else pathPixels[i].a=0;
+                    }
+                    for(int i=0;i<terrainPixels.Length;i++)if(map.Surface(i)==1)terrainPixels[i].a=0;
+                    result.texture.SetPixels32(terrainPixels);result.texture.Apply(false,false);
+                    var pathTexture=new Texture2D(map.width,map.height,TextureFormat.RGBA32,false){name="RaisedPathPixels",filterMode=FilterMode.Point,wrapMode=TextureWrapMode.Clamp};
+                    pathTexture.SetPixels32(pathPixels);pathTexture.Apply(false,false);result.owned.Add(pathTexture);
+                    pathMaterial=MaterialFor(pathTexture,result,materials);
+                    pathMaterial.SetTexture("_SurfaceMap",result.surfaceMask);pathMaterial.SetFloat("_SeparateWater",1);pathMaterial.SetFloat("_TerrainLighting",1);
+                    ConfigureGradient(pathMaterial,map,gradientTexture,gradients.enabled);
+                    var wallTexture=new Texture2D(1,1,TextureFormat.RGBA32,false){name="PathCutSideColor",filterMode=FilterMode.Point,wrapMode=TextureWrapMode.Clamp};
+                    wallTexture.SetPixel(0,0,map.outlineOuterColor);wallTexture.Apply(false,false);result.owned.Add(wallTexture);
+                    pathBank=MaterialFor(wallTexture,result,materials);pathBank.SetFloat("_TerrainLighting",1);
+                }
+                int step=Mathf.Clamp(map.meshStep,1,16);
+                var pathHeightWeights=hasReliefPath?BuildPathInteriorWeights(map):null;
                 for(int y0=0;y0<map.height;y0+=ChunkPixels)
                 {
                     int yEnd=Mathf.Min(map.height,y0+ChunkPixels),cols=Mathf.CeilToInt((float)map.width/step),rows=Mathf.CeilToInt((float)(yEnd-y0)/step),stride=cols+1;
@@ -121,8 +151,7 @@ namespace HeartDev.MapWorkshop
                     {
                         int px=Mathf.Min(x*step,map.width),py=Mathf.Min(y0+y*step,yEnd),i=y*stride+x;
                         float vx=(px-map.width*.5f)/map.pixelsPerUnit,vz=(float)py/map.pixelsPerUnit;
-                        float pathWeight=pathHeightWeights!=null?pathHeightWeights[map.Index(px,py)]:0;
-                        vertices[i]=new Vector3(vx,map.RawVertexHeight(px,py)+pathHeightScale*pathWeight-curvature*((vz-focus)*(vz-focus)+.65f*vx*vx),vz);
+                        vertices[i]=new Vector3(vx,map.RawVertexHeight(px,py)-curvature*((vz-focus)*(vz-focus)+.65f*vx*vx),vz);
                         uv[i]=new Vector2((float)px/map.width,(float)py/map.height);
                         if(x<cols&&y<rows){int k=(y*cols+x)*6;triangles[k]=i;triangles[k+1]=i+stride;triangles[k+2]=i+1;triangles[k+3]=i+1;triangles[k+4]=i+stride;triangles[k+5]=i+stride+1;}
                     }
@@ -136,6 +165,7 @@ namespace HeartDev.MapWorkshop
                         MeshObject(riverMesh.name,riverMesh,water,result.root.transform,result,false,false);
                         if(map.RiverDepth>0)BuildBanks(map,y0,yEnd,curvature,focus,bank,result);
                     }
+                    if(hasReliefPath)BuildPathRelief(map,y0,yEnd,curvature,focus,pathHeightScale,pathHeightWeights,pathMaterial,pathBank,result);
                     // One combined mesh per atlas and strip. Grass never creates a GameObject per blade.
                     var groups=new Dictionary<(Texture,bool),List<PixelMapDocument.Decoration>>();
                     foreach(var prop in map.decorations)
@@ -165,6 +195,86 @@ namespace HeartDev.MapWorkshop
                 return result;
             }
             catch{result.Dispose();throw;}
+        }
+        private static float[] BuildPathInteriorWeights(PixelMapDocument map)
+        {
+            int count=map.width*map.height;var distance=new float[count];
+            for(int i=0;i<count;i++)distance[i]=map.Surface(i)==1?float.PositiveInfinity:0;
+            const float diagonal=1.41421356f;
+            for(int y=0;y<map.height;y++)for(int x=0;x<map.width;x++)
+            {
+                int i=y*map.width+x;float d=distance[i];
+                if(x>0)d=Mathf.Min(d,distance[i-1]+1);
+                if(y>0)d=Mathf.Min(d,distance[i-map.width]+1);
+                if(x>0&&y>0)d=Mathf.Min(d,distance[i-map.width-1]+diagonal);
+                if(x+1<map.width&&y>0)d=Mathf.Min(d,distance[i-map.width+1]+diagonal);
+                distance[i]=d;
+            }
+            for(int y=map.height-1;y>=0;y--)for(int x=map.width-1;x>=0;x--)
+            {
+                int i=y*map.width+x;float d=distance[i];
+                if(x+1<map.width)d=Mathf.Min(d,distance[i+1]+1);
+                if(y+1<map.height)d=Mathf.Min(d,distance[i+map.width]+1);
+                if(x+1<map.width&&y+1<map.height)d=Mathf.Min(d,distance[i+map.width+1]+diagonal);
+                if(x>0&&y+1<map.height)d=Mathf.Min(d,distance[i+map.width-1]+diagonal);
+                distance[i]=d;
+            }
+            int smooth=Mathf.Clamp(map.pathHeightSmoothPixels,0,32);var weights=new float[count];
+            for(int i=0;i<count;i++)if(map.Surface(i)==1)weights[i]=smooth==0?1:Mathf.SmoothStep(0,1,Mathf.Clamp01((distance[i]-.5f)/smooth));
+            return weights;
+        }
+        private static float PathVertexWeight(PixelMapDocument map,float[] weights,int x,int y)
+        {
+            float sum=0;int count=0;
+            for(int cy=y-1;cy<=y;cy++)for(int cx=x-1;cx<=x;cx++)
+            {
+                if(cx<0||cy<0||cx>=map.width||cy>=map.height)continue;
+                int i=map.Index(cx,cy);if(map.Surface(i)!=1)continue;sum+=weights[i];count++;
+            }
+            return count==0?0:sum/count;
+        }
+        private static Vector3 PathPosition(PixelMapDocument map,int px,int py,float weight,float heightScale,float curvature,float focus)
+        {
+            float x=(px-map.width*.5f)/map.pixelsPerUnit,z=py/(float)map.pixelsPerUnit;
+            return new Vector3(x,map.RawVertexHeight(px,py)+heightScale*weight-curvature*((z-focus)*(z-focus)+.65f*x*x),z);
+        }
+        private static void BuildPathRelief(PixelMapDocument map,int y0,int yEnd,float curvature,float focus,float heightScale,float[] weights,Material topMaterial,Material wallMaterial,Result result)
+        {
+            int rows=yEnd-y0,stride=map.width+1;var vertices=new Vector3[stride*(rows+1)];var uv=new Vector2[vertices.Length];var triangles=new List<int>();
+            for(int y=0;y<=rows;y++)for(int x=0;x<=map.width;x++)
+            {
+                int py=y0+y,i=y*stride+x;float weight=PathVertexWeight(map,weights,x,py);
+                vertices[i]=PathPosition(map,x,py,weight,heightScale,curvature,focus);uv[i]=new Vector2((float)x/map.width,(float)py/map.height);
+            }
+            for(int y=0;y<rows;y++)for(int x=0;x<map.width;x++)
+            {
+                if(map.Surface(map.Index(x,y0+y))!=1)continue;
+                int i=y*stride+x;triangles.Add(i);triangles.Add(i+stride);triangles.Add(i+1);triangles.Add(i+1);triangles.Add(i+stride);triangles.Add(i+stride+1);
+            }
+            if(triangles.Count>0)
+            {
+                var mesh=new Mesh{name="PathRelief_"+y0,indexFormat=vertices.Length>65535?IndexFormat.UInt32:IndexFormat.UInt16};mesh.vertices=vertices;mesh.uv=uv;mesh.SetTriangles(triangles,0);mesh.RecalculateBounds();MeshObject(mesh.name,mesh,topMaterial,result.root.transform,result,false,false);
+            }
+            var wallVertices=new List<Vector3>();var wallUv=new List<Vector2>();var wallTriangles=new List<int>();
+            void Edge(int nx,int ny,int ax,int ay,int bx,int by)
+            {
+                if(nx>=0&&ny>=0&&nx<map.width&&ny<map.height&&map.Surface(map.Index(nx,ny))==1)return;
+                float wa=PathVertexWeight(map,weights,ax,ay),wb=PathVertexWeight(map,weights,bx,by);
+                var topA=PathPosition(map,ax,ay,0,0,curvature,focus);var topB=PathPosition(map,bx,by,0,0,curvature,focus);
+                var bottomA=PathPosition(map,ax,ay,wa,heightScale,curvature,focus);var bottomB=PathPosition(map,bx,by,wb,heightScale,curvature,focus);
+                if((topA-bottomA).sqrMagnitude<.0000001f&&(topB-bottomB).sqrMagnitude<.0000001f)return;
+                int i=wallVertices.Count;wallVertices.Add(topA);wallVertices.Add(topB);wallVertices.Add(bottomA);wallVertices.Add(bottomB);
+                wallUv.Add(Vector2.up);wallUv.Add(Vector2.one);wallUv.Add(Vector2.zero);wallUv.Add(Vector2.right);
+                wallTriangles.Add(i);wallTriangles.Add(i+2);wallTriangles.Add(i+1);wallTriangles.Add(i+1);wallTriangles.Add(i+2);wallTriangles.Add(i+3);
+            }
+            for(int y=y0;y<yEnd;y++)for(int x=0;x<map.width;x++)
+            {
+                if(map.Surface(map.Index(x,y))!=1)continue;
+                Edge(x-1,y,x,y,x,y+1);Edge(x+1,y,x+1,y+1,x+1,y);
+                Edge(x,y-1,x+1,y,x,y);Edge(x,y+1,x,y+1,x+1,y+1);
+            }
+            if(wallVertices.Count==0)return;
+            var walls=new Mesh{name="PathCutSides_"+y0,indexFormat=wallVertices.Count>65535?IndexFormat.UInt32:IndexFormat.UInt16};walls.SetVertices(wallVertices);walls.SetUVs(0,wallUv);walls.SetTriangles(wallTriangles,0);walls.RecalculateBounds();MeshObject(walls.name,walls,wallMaterial,result.root.transform,result,false,false);
         }
         private static void BuildBanks(PixelMapDocument map,int y0,int yEnd,float curvature,float focus,Material material,Result result)
         {
