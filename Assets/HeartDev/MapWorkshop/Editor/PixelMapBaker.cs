@@ -121,47 +121,42 @@ namespace HeartDev.MapWorkshop
                 }
                 if(hasReliefPath)
                 {
-                    // The road is a separate pixel surface. Cutting its texels from the
-                    // terrain makes the offset read as a real trench or raised platform.
-                    var terrainPixels=result.texture.GetPixels32();
-                    var pathPixels=(Color32[])terrainPixels.Clone();
-                    for(int i=0;i<terrainPixels.Length;i++)
-                    {
-                        if(map.Surface(i)==1)pathPixels[i].a=255;
-                        else pathPixels[i].a=0;
-                    }
-                    for(int i=0;i<terrainPixels.Length;i++)if(map.Surface(i)==1)terrainPixels[i].a=0;
-                    result.texture.SetPixels32(terrainPixels);result.texture.Apply(false,false);
-                    var pathTexture=new Texture2D(map.width,map.height,TextureFormat.RGBA32,false){name="RaisedPathPixels",filterMode=FilterMode.Point,wrapMode=TextureWrapMode.Clamp};
-                    pathTexture.SetPixels32(pathPixels);pathTexture.Apply(false,false);result.owned.Add(pathTexture);
-                    pathMaterial=MaterialFor(pathTexture,result,materials);
-                    pathMaterial.SetTexture("_SurfaceMap",result.surfaceMask);pathMaterial.SetFloat("_SeparateWater",1);pathMaterial.SetFloat("_TerrainLighting",1);
-                    ConfigureGradient(pathMaterial,map,gradientTexture,gradients.enabled);
+                    // Keep the pixel texture opaque. The ground mesh will omit the
+                    // exact road cells, and this material draws those same cells above
+                    // or below the terrain without alpha-cut seams.
+                    pathMaterial=terrain;
                     var wallTexture=new Texture2D(1,1,TextureFormat.RGBA32,false){name="PathCutSideColor",filterMode=FilterMode.Point,wrapMode=TextureWrapMode.Clamp};
                     wallTexture.SetPixel(0,0,map.outlineOuterColor);wallTexture.Apply(false,false);result.owned.Add(wallTexture);
                     pathBank=MaterialFor(wallTexture,result,materials);pathBank.SetFloat("_TerrainLighting",1);
                 }
-                int step=Mathf.Clamp(map.meshStep,1,16);
+                // Relief edges are pixel aligned, so a coarser ground grid can leave
+                // uncovered slivers where a road texel meets a terrain triangle.
+                int step=hasReliefPath?1:Mathf.Clamp(map.meshStep,1,16);
                 var pathHeightWeights=hasReliefPath?BuildPathInteriorWeights(map):null;
                 for(int y0=0;y0<map.height;y0+=ChunkPixels)
                 {
                     int yEnd=Mathf.Min(map.height,y0+ChunkPixels),cols=Mathf.CeilToInt((float)map.width/step),rows=Mathf.CeilToInt((float)(yEnd-y0)/step),stride=cols+1;
-                    var vertices=new Vector3[stride*(rows+1)];var uv=new Vector2[vertices.Length];var triangles=new int[cols*rows*6];
+                    var vertices=new Vector3[stride*(rows+1)];var uv=new Vector2[vertices.Length];var triangles=new List<int>(cols*rows*6);
                     for(int y=0;y<=rows;y++)for(int x=0;x<=cols;x++)
                     {
                         int px=Mathf.Min(x*step,map.width),py=Mathf.Min(y0+y*step,yEnd),i=y*stride+x;
                         float vx=(px-map.width*.5f)/map.pixelsPerUnit,vz=(float)py/map.pixelsPerUnit;
                         vertices[i]=new Vector3(vx,map.RawVertexHeight(px,py)-curvature*((vz-focus)*(vz-focus)+.65f*vx*vx),vz);
                         uv[i]=new Vector2((float)px/map.width,(float)py/map.height);
-                        if(x<cols&&y<rows){int k=(y*cols+x)*6;triangles[k]=i;triangles[k+1]=i+stride;triangles[k+2]=i+1;triangles[k+3]=i+1;triangles[k+4]=i+stride;triangles[k+5]=i+stride+1;}
                     }
-                    var mesh=new Mesh{name="Ground_"+y0,indexFormat=vertices.Length>65535?IndexFormat.UInt32:IndexFormat.UInt16};mesh.vertices=vertices;mesh.uv=uv;mesh.triangles=triangles;mesh.RecalculateBounds();
+                    for(int y=0;y<rows;y++)for(int x=0;x<cols;x++)
+                    {
+                        int sampleX=Mathf.Min(x*step,map.width-1),sampleY=Mathf.Min(y0+y*step,map.height-1);
+                        if(hasReliefPath&&map.Surface(map.Index(sampleX,sampleY))==1)continue;
+                        int i=y*stride+x;triangles.Add(i);triangles.Add(i+stride);triangles.Add(i+1);triangles.Add(i+1);triangles.Add(i+stride);triangles.Add(i+stride+1);
+                    }
+                    var mesh=new Mesh{name="Ground_"+y0,indexFormat=vertices.Length>65535?IndexFormat.UInt32:IndexFormat.UInt16};mesh.vertices=vertices;mesh.uv=uv;mesh.SetTriangles(triangles,0);mesh.RecalculateBounds();
                     MeshObject(mesh.name,mesh,terrain,result.root.transform,result);
                     bool wet=false;for(int y=y0;y<yEnd&&!wet;y++)for(int x=0;x<map.width;x++)if(map.Surface(y*map.width+x)==2){wet=true;break;}
                     if(wet)
                     {
                         var lower=(Vector3[])vertices.Clone();for(int i=0;i<lower.Length;i++)lower[i].y-=map.RiverDepth;
-                        var riverMesh=new Mesh{name="Water_"+y0,indexFormat=mesh.indexFormat};riverMesh.vertices=lower;riverMesh.uv=uv;riverMesh.triangles=triangles;riverMesh.RecalculateBounds();
+                        var riverMesh=new Mesh{name="Water_"+y0,indexFormat=mesh.indexFormat};riverMesh.vertices=lower;riverMesh.uv=uv;riverMesh.SetTriangles(triangles,0);riverMesh.RecalculateBounds();
                         MeshObject(riverMesh.name,riverMesh,water,result.root.transform,result,false,false);
                         if(map.RiverDepth>0)BuildBanks(map,y0,yEnd,curvature,focus,bank,result);
                     }
