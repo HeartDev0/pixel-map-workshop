@@ -126,9 +126,9 @@ namespace HeartDev.MapWorkshop
             previewPanel=new IMGUIContainer(DrawPreview);previewPanel.style.flexGrow=1;threePane.Add(previewPanel);
             BuildPreviewInteractionControls(threePane);
             var cameraControls=new Foldout{text="Cámara y curvatura",value=false};threePane.Add(cameraControls);
-            AddSlider(cameraControls,"Recorrer",0,1,viewPosition,v=>viewPosition=v);AddSlider(cameraControls,"Distancia",.8f,15,distance,v=>distance=v);AddSlider(cameraControls,"Giro",-180,180,yaw,v=>yaw=v);AddSlider(cameraControls,"Inclinación",10,85,pitch,v=>pitch=v);
+            AddCameraSlider(cameraControls,"Recorrer",0,1,viewPosition,v=>viewPosition=v,true);AddCameraSlider(cameraControls,"Distancia",.8f,15,distance,v=>distance=v);AddCameraSlider(cameraControls,"Giro",-180,180,yaw,v=>yaw=v);AddCameraSlider(cameraControls,"Inclinación",10,85,pitch,v=>pitch=v);
             BuildCurveControls(cameraControls);
-            cameraControls.Add(Button("Centrar",()=>{viewPosition=.5f;distance=4;yaw=0;pitch=35;BuildInterface();}));
+            cameraControls.Add(Button("Centrar",()=>{viewPosition=.5f;previewPanX=0;distance=4;yaw=0;pitch=35;RequestCameraRepaint();BuildInterface();}));
             paintPane.style.display=workspace==1?DisplayStyle.None:DisplayStyle.Flex;threePane.style.display=workspace==0?DisplayStyle.None:DisplayStyle.Flex;
 
             var rightSidebar=new VisualElement();rightSidebar.AddToClassList("right-sidebar");rightSidebar.style.width=rightPaneWidth;AddSidebarDivider(body,rightSidebar,true);body.Add(rightSidebar);
@@ -146,7 +146,7 @@ namespace HeartDev.MapWorkshop
             var current=Section(details,"PROP SELECCIONADO");current.AddToClassList("selected-prop-section");var selected=Row("selected-prop-row");current.Add(selected);
             activeImage=new UnityEngine.UIElements.Image{scaleMode=ScaleMode.ScaleToFit};activeImage.AddToClassList("selected-image");selected.Add(activeImage);
             var info=new VisualElement();info.style.flexGrow=1;info.style.minWidth=0;selected.Add(info);activeName=new Label();activeName.AddToClassList("selected-name");info.Add(activeName);activeSize=new Label();activeSize.AddToClassList("hint");info.Add(activeSize);
-            BuildFlowerRotationControls(details);
+            BuildFlowerRotationControls(details);BuildTilePropControls(details);
             var manual=new Foldout{text="Añadir un sprite manualmente",value=false};details.Add(manual);
             var spriteField=new ObjectField("Sprite"){objectType=typeof(Sprite),allowSceneObjects=false};spriteField.RegisterValueChangedCallback(e=>{var sprite=e.newValue as Sprite;if(sprite!=null){AddToLibrary(sprite,category>0?(PixelMapPropLibrary.Category)(category-1):PixelMapPropLibrary.Category.Otros);SelectSprite(sprite,sprite.name,category==3);}});manual.Add(spriteField);
             assets.RegisterCallback<DragUpdatedEvent>(e=>{if(DragAndDrop.objectReferences.Length>0){DragAndDrop.visualMode=DragAndDropVisualMode.Copy;e.StopPropagation();}});
@@ -164,6 +164,7 @@ namespace HeartDev.MapWorkshop
         }
         private void SelectTool(Brush selected)
         {
+            LeaveTilePropPlacement();
             EndStroke();selectionTool=SelectionTool.Ninguna;RefreshSelectionTools();bucket=false;bucketToggle?.SetValueWithoutNotify(false);
             bool keepSample=selected==Brush.Pintar&&!string.IsNullOrEmpty(sampledLayerId)&&activeLayerId==sampledLayerId;
             if(brush!=selected){brush=selected;if(!keepSample)ChooseToolLayer();else RefreshLayers();}if(selected==Brush.Pintar)sampledLayerId=null;RefreshToolUI();
@@ -234,6 +235,7 @@ namespace HeartDev.MapWorkshop
         }
         private void MoveCursor(Vector2 point)
         {
+            if(placeTileProps){brushCursor.style.display=DisplayStyle.None;propGhost.style.display=DisplayStyle.None;return;}
             UpdateGroupGhost(point);
             if(selectionTool!=SelectionTool.Ninguna){brushCursor.style.display=DisplayStyle.None;propGhost.style.display=DisplayStyle.None;return;}
             if(document==null)return;UpdateBrushCursor(point);

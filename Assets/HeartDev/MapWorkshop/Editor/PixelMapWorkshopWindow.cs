@@ -39,6 +39,7 @@ namespace HeartDev.MapWorkshop
         private bool previewRepaintPending=true;
         private double nextPreviewRepaint,nextModelBuild;
         private int undoGroup;
+        private int patternSourceRevision=-1;
 
         [MenuItem("Tools/HeartDev/Pixel Map Workshop")]
         public static void Open(){var window=GetWindow<PixelMapWorkshopWindow>("Pixel Map Workshop");window.minSize=new Vector2(900,600);window.Show();}
@@ -46,8 +47,8 @@ namespace HeartDev.MapWorkshop
         private void OnEnable(){LoadWorkspacePreferences();Undo.undoRedoPerformed+=OnUndo;EditorApplication.update+=UpdatePreview;wantsMouseMove=true;}
         private void OnDisable()
         {
-            ReleasePropGizmo();SaveWorkspacePreferences();DisposeGeneratedBase();
-            CancelLayerDrag();
+            ReleasePreviewNavigation();ReleasePropGizmo();SaveWorkspacePreferences();DisposeGeneratedBase();
+            CancelLayerDrag();EditorApplication.delayCall-=FlushLayerRefresh;layerRefreshQueued=false;layerVisualRefresh=false;
             EndStroke();Undo.undoRedoPerformed-=OnUndo;EditorApplication.update-=UpdatePreview;
             if(paintTexture!=null)DestroyImmediate(paintTexture);
             if(patternPreviewTexture!=null)DestroyImmediate(patternPreviewTexture);
@@ -57,18 +58,23 @@ namespace HeartDev.MapWorkshop
         }
         private void OnUndo(){selectedProps.Clear();selectedProp=-1;PixelMapPatterns.Clear();BuildInterface();RecordOperation("Deshacer / rehacer");}
 
-        private void OnLostFocus(){ReleasePropGizmo();spaceHeld=false;panning=false;CancelLayerDrag();if(lineDragging)CancelPropLine();}
+        private void OnLostFocus(){ReleasePreviewNavigation();ReleasePropGizmo();spaceHeld=false;panning=false;CancelLayerDrag();if(lineDragging)CancelPropLine();}
         private void InvalidatePreview(){previewDirty=true;RequestPreviewRepaint();}
         private void RequestPreviewRepaint(){previewRepaintPending=true;}
         private void UpdatePreview()
         {
             if(EditorApplication.isCompiling||EditorApplication.isUpdating)return;
+            if(patternSourceRevision!=PixelMapPatterns.SourceRevision&&!LayerInteractionActive)
+            {
+                patternSourceRevision=PixelMapPatterns.SourceRevision;ReadTile();RefreshPaint();InvalidatePreview();
+            }
             UpdateSafety();UpdateAmbientUI();
             if(model!=null&&(model.animatedWater||model.animatedGrass||model.animatedClouds||ambientPresetModel!=null)&&EditorApplication.timeSinceStartup>=nextPreviewRepaint)previewRepaintPending=true;
             // UI Toolkit may cache an IMGUIContainer while only the 2D image changes.
-            // Request an Editor repaint explicitly, capped at 10 updates/sec while painting.
+            // Navigation renders at 30 fps; idle effects keep the lighter 10 fps budget.
+            if(PreviewCameraActive)previewRepaintPending=true;
             if(!previewRepaintPending||EditorApplication.timeSinceStartup<nextPreviewRepaint||previewPanel==null||previewPanel.panel==null||workspace==0)return;
-            previewRepaintPending=false;nextPreviewRepaint=EditorApplication.timeSinceStartup+.1;
+            previewRepaintPending=false;nextPreviewRepaint=EditorApplication.timeSinceStartup+(PreviewCameraActive?1.0/30:.1);
             previewPanel.MarkDirtyRepaint();Repaint();
         }
         private static Label Heading(string text)
@@ -110,6 +116,7 @@ namespace HeartDev.MapWorkshop
                 var marker=selectedProps.Contains(markerIndex)?new Color32(255,92,81,255):prop.grass?new Color32(25,91,44,255):new Color32(255,221,91,255);
                 for(int d=-1;d<=1;d++){pixels[document.Index(x+d,y)]=marker;pixels[document.Index(x,y+d)]=marker;}
             }
+            foreach(var prop in document.tileProps)if(document.TilePropVisible(prop))for(int d=-2;d<=2;d++){pixels[document.Index(prop.pixel.x+d,prop.pixel.y)]=new Color32(100,210,225,255);pixels[document.Index(prop.pixel.x,prop.pixel.y+d)]=new Color32(100,210,225,255);}
             paintTexture.SetPixels32(pixels);paintTexture.Apply(false,false);canvas.image=paintTexture;RefreshCanvasSize();
             if(minimap!=null)minimap.image=paintTexture;
             if(status!=null)status.text=$"{document.width} × {document.height} px · {document.decorations.Count} figuras · Ctrl+Z para deshacer";
@@ -118,7 +125,7 @@ namespace HeartDev.MapWorkshop
         private void PointerDown(PointerDownEvent e)
         {
             if(e.button!=0||document==null||!document.IsValid)return;
-            rootVisualElement.Focus();if(BeginSelection(e)){e.StopPropagation();return;}
+            rootVisualElement.Focus();if(BeginSelection(e)){e.StopPropagation();return;}if(TryPlaceTileProp(Pixel(e.localPosition))){e.StopPropagation();return;}
             if(brush==Brush.TomarColor){PickPaintMaterial(Pixel(e.localPosition),sampleMaterialFull&&!e.shiftKey);e.StopPropagation();return;}
             BeginStrokeAt(Pixel(e.localPosition));if(painting||lineDragging)canvas.CapturePointer(e.pointerId);e.StopPropagation();
         }
@@ -189,9 +196,8 @@ namespace HeartDev.MapWorkshop
         private void ReadTile()
         {
             tilePixels=null;if(tile==null){RefreshPatternPreview();return;}
-            var rt=RenderTexture.GetTemporary(tile.width,tile.height,0,RenderTextureFormat.ARGB32);var previous=RenderTexture.active;Texture2D copy=null;
-            try{Graphics.Blit(tile,rt);RenderTexture.active=rt;copy=new Texture2D(tile.width,tile.height,TextureFormat.RGBA32,false);copy.ReadPixels(new Rect(0,0,tile.width,tile.height),0,0);copy.Apply();AdaptPattern(copy.GetPixels32(),tile.width,tile.height);}
-            finally{RenderTexture.active=previous;RenderTexture.ReleaseTemporary(rt);if(copy!=null)DestroyImmediate(copy);}
+            if(PixelMapPatterns.TryRead(tile,out var colors,out int width,out int height))AdaptPattern(colors,width,height);
+            else RefreshPatternPreview();
         }
         private static Sprite CreateGrass()
         {
@@ -239,15 +245,15 @@ namespace HeartDev.MapWorkshop
                 {
                     var updated=PixelMapBaker.Build(document,curvedPreview?previewCurvature:0,viewPosition*document.height/document.pixelsPerUnit);
                     try{preview.AddSingleGO(updated.root);}catch{updated.Dispose();throw;}
-                    model?.Dispose();model=updated;DisposeAmbientPresetPreview();CachePickMeshes();previewDirty=false;nextModelBuild=EditorApplication.timeSinceStartup+.1;
+                    model?.Dispose();model=updated;DisposeAmbientPresetPreview();CachePickMeshes();previewDirty=false;nextModelBuild=EditorApplication.timeSinceStartup+(PreviewCameraActive?1.0/30:.1);
                     if(status!=null)status.text=$"{document.decorations.Count} figuras · {model.drawGroups} grupos de dibujo · {model.vertices:N0} vértices";
                 }
                 if(previewDirty)RequestPreviewRepaint();
                 UpdateAmbientPresetPreview();
                 if(model!=null){foreach(var material in model.animatedMaterials)material.SetFloat("_WaterClock",(float)EditorApplication.timeSinceStartup);UpdateAmbientPreview();}
                 float z=viewPosition*document.height;
-                var focus=new Vector3(0,document.SurfaceHeight(document.width*.5f,z),z/document.pixelsPerUnit);
-                var rotation=Quaternion.Euler(pitch,yaw,0);preview.camera.transform.SetPositionAndRotation(focus-rotation*Vector3.forward*distance,rotation);
+                var focus=new Vector3(previewPanX,document.SurfaceHeight(document.width*.5f+previewPanX*document.pixelsPerUnit,z),z/document.pixelsPerUnit);
+                var rotation=Quaternion.Euler(pitch,yaw,0);ApplyPreviewCamera(focus-rotation*Vector3.forward*distance,rotation);
                 Texture image=null;bool begun=false;
                 try{preview.BeginPreview(rect,GUIStyle.none);begun=true;preview.Render(true);}
                 finally{if(begun)image=preview.EndPreview();}

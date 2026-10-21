@@ -45,7 +45,7 @@ namespace HeartDev.MapWorkshop
             public Vector2Int start,end;
             public int widthPixels=8;
         }
-        public enum AmbientMotion { Personalizado,Hojas,Rafagas,Otono,Petalos,Polen,Luciernagas,Polvo,Nieve,Ventisca,Ceniza,Brasas,Lluvia,Burbujas,Niebla,Magia }
+        public enum AmbientMotion { Personalizado,Hojas,Rafagas,Otono,Petalos,Polen,Luciernagas,Polvo,Nieve,Ventisca,Ceniza,Brasas,Lluvia,Burbujas,Niebla,Magia,BandadaPeces,PecesExploradores,BurbujasArrecife,ParticulasMarinas,Medusas,RayosMarinos,Causticas,SombrasMarinas }
         [Serializable] public sealed class AmbientZone
         {
             public string name="Ambiente";
@@ -64,7 +64,24 @@ namespace HeartDev.MapWorkshop
             public bool customMotion,flicker;
             public Vector3 velocity=new Vector3(.12f,-.018f,.024f);
             public float spin=.35f,size=1,turbulence,opacity=1;
+            public int schoolCount=3,fishPerSchool=8,swimBottomPixels=4,swimTopPixels=48;
+            public float fishSpacingPixels=5,turnSpeed=2,tailSwayPixels=1,tailFrequency=5;
+            public bool fishFacesRight=true,avoidLargeProps=true;
+            public HeartDev.MapWorkshop.MarineRoute marineRoute;
+            public string marineWaterZoneId="";
+            public int bubbleVents=3;
+            public float marineLightStrength=.25f,marinePatternPixels=16;
         }
+        [Serializable] public sealed class TilePropPlacement
+        {
+            public string id=Guid.NewGuid().ToString("N"),layerId;
+            public GameObject prefab;
+            public Vector2Int pixel;
+            public int heightOffsetPixels;
+            public float yaw;
+        }
+        public List<TilePropPlacement> tileProps=new List<TilePropPlacement>();
+        public bool TilePropVisible(TilePropPlacement prop)=>prop!=null&&prop.prefab!=null&&(string.IsNullOrEmpty(prop.layerId)||layers.Exists(l=>l.id==prop.layerId&&l.visible));
         public List<PropGroup> propGroups=new List<PropGroup>();
         public List<WaterZone> waterZones=new List<WaterZone>();
         public List<Platform> platforms=new List<Platform>();

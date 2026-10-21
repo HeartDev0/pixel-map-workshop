@@ -12,7 +12,8 @@ namespace HeartDev.MapWorkshop
             internal string name,hint,keywords;internal Vector3 velocity;internal Color tint;
             internal PixelMapDocument.AmbientMotion motion;
             internal int count,height;internal float life,spin,size,turbulence,opacity;internal bool flicker;
-            internal PixelMapDocument.AmbientZone Create(Sprite sprite)=>new PixelMapDocument.AmbientZone{name=name,preset=name,motion=motion,sprite=sprite,customMotion=true,velocity=velocity,tint=tint,maxParticles=count,heightPixels=height,lifetime=life,spin=spin,size=size,turbulence=turbulence,opacity=opacity,flicker=flicker,speed=1,variation=.25f};
+            internal bool RequiresSprite=>motion!=PixelMapDocument.AmbientMotion.RayosMarinos&&motion!=PixelMapDocument.AmbientMotion.Causticas;
+            internal PixelMapDocument.AmbientZone Create(Sprite sprite)=>new PixelMapDocument.AmbientZone{name=name,preset=name,motion=motion,sprite=sprite,customMotion=true,velocity=velocity,tint=tint,maxParticles=count,heightPixels=height,lifetime=life,spin=spin,size=size,turbulence=turbulence,opacity=opacity,flicker=flicker,speed=1,variation=.25f,schoolCount=motion==PixelMapDocument.AmbientMotion.BandadaPeces?3:2,fishPerSchool=motion==PixelMapDocument.AmbientMotion.BandadaPeces?8:1,swimTopPixels=Mathf.Max(12,height-8),marineLightStrength=motion==PixelMapDocument.AmbientMotion.Causticas?.4f:.25f};
         }
         private static Preset P(PixelMapDocument.AmbientMotion motion,string name,string hint,string keywords,Vector3 velocity,Color tint,int count,int height,float life,float spin,float size,float turbulence=0,float opacity=1,bool flicker=false)=>new Preset{motion=motion,name=name,hint=hint,keywords=keywords,velocity=velocity,tint=tint,count=count,height=height,life=life,spin=spin,size=size,turbulence=turbulence,opacity=opacity,flicker=flicker};
         internal static readonly List<Preset> All=new List<Preset>
@@ -31,7 +32,15 @@ namespace HeartDev.MapWorkshop
             P(PixelMapDocument.AmbientMotion.Lluvia,"Lluvia","Gotas rápidas que nacen arriba y se orientan con la caída.","gota,rain,lluvia",new Vector3(.06f,-1.6f,0),new Color(.7f,.87f,1),64,96,2.5f,0,.45f,0,.7f),
             P(PixelMapDocument.AmbientMotion.Burbujas,"Burbujas","Nacen abajo, serpentean al subir y crecen suavemente.","burbuja,bubble",new Vector3(.008f,.10f,.005f),new Color(.7f,.95f,1),20,36,12,0,.5f,.015f,.7f),
             P(PixelMapDocument.AmbientMotion.Niebla,"Niebla baja","Bancos amplios cerca del suelo, con expansión y disolución lenta.","nube,cloud,niebla",new Vector3(.025f,0,.008f),new Color(.8f,.87f,.9f),10,12,18,0,2,.008f,.18f),
-            P(PixelMapDocument.AmbientMotion.Magia,"Motas mágicas","Espirales luminosas con pulsos y cambios de tamaño.","magia,magic,luz,estrella",new Vector3(.018f,.04f,.02f),new Color(.8f,.55f,1),24,40,9,.4f,.25f,.055f,1,true)
+            P(PixelMapDocument.AmbientMotion.Magia,"Motas mágicas","Espirales luminosas con pulsos y cambios de tamaño.","magia,magic,luz,estrella",new Vector3(.018f,.04f,.02f),new Color(.8f,.55f,1),24,40,9,.4f,.25f,.055f,1,true),
+            P(PixelMapDocument.AmbientMotion.BandadaPeces,"Bandadas de peces","Grupos coordinados: separación, giros con retraso, cola ondulante y volumen acuático protegido.","pez,peces,fish",new Vector3(.18f,0,.025f),Color.white,24,96,18,0,1),
+            P(PixelMapDocument.AmbientMotion.PecesExploradores,"Peces exploradores","Uno o dos peces recorren el volumen con pausas y cambios de dirección suaves.","pez,peces,fish",new Vector3(.10f,0,.015f),Color.white,2,96,22,0,1),
+            P(PixelMapDocument.AmbientMotion.BurbujasArrecife,"Burbujas de arrecife","Ráfagas pequeñas desde puntos localizados cerca del fondo.","burbuja,bubble",new Vector3(.004f,.12f,.003f),new Color(.72f,.95f,1),24,64,12,0,.4f,.012f,.75f),
+            P(PixelMapDocument.AmbientMotion.ParticulasMarinas,"Partículas suspendidas","Motas tenues que derivan lentamente con la corriente submarina.","mota,polvo,dust,particula",new Vector3(.008f,.002f,.005f),new Color(.65f,.86f,.94f),32,96,20,0,.12f,.012f,.28f),
+            P(PixelMapDocument.AmbientMotion.Medusas,"Medusas","Ascenso lento, pulsación de la campana y ondulación de los tentáculos.","medusa,jelly",new Vector3(.008f,.025f,.003f),new Color(.85f,.92f,1),8,96,20,0,.8f,.012f,.8f),
+            P(PixelMapDocument.AmbientMotion.RayosMarinos,"Rayos de luz submarinos","Haces suaves desde la superficie, animados en el shader. No requiere sprite.","rayo,luz",Vector3.zero,new Color(.48f,.85f,1),5,128,20,0,1,0,.35f),
+            P(PixelMapDocument.AmbientMotion.Causticas,"Cáusticas submarinas","Reflejos pixelados sobre terreno y props sólidos, con movimiento lento. No requiere sprite.","caustica",Vector3.zero,new Color(.45f,.86f,1),1,96,20,0,1,0,.75f),
+            P(PixelMapDocument.AmbientMotion.SombrasMarinas,"Sombras marinas lejanas","Siluetas ocasionales de peces grandes, con entrada y salida gradual.","pez,peces,fish",new Vector3(.07f,0,.01f),new Color(.08f,.25f,.37f),2,128,24,0,2,0,.2f)
         };
     }
 }

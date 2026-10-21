@@ -1,0 +1,12 @@
+{
+  "name": "HeartDev.TilePropStudio.Editor",
+  "rootNamespace": "HeartDev.TilePropStudio",
+  "references": [
+    "Unity.RenderPipelines.Universal.Runtime",
+    "HeartDev.TilePropStudio.Runtime"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "autoReferenced": true
+}

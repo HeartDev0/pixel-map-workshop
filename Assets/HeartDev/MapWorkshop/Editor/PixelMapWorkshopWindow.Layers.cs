@@ -16,8 +16,41 @@ namespace HeartDev.MapWorkshop
         private Toggle bucketToggle;
         private Button bucketButton;
         private Action cancelLayerDrag;
-        private bool layerDropPending;
-        private bool LayerInteractionActive=>cancelLayerDrag!=null||layerDropPending;
+        private bool layerDropPending,layerRefreshQueued,layerVisualRefresh;
+        private PixelMapDocument layerRefreshDocument;
+        private bool refreshingLayers;
+        private void FlushLayerRefresh()
+        {
+            EditorApplication.delayCall-=FlushLayerRefresh;
+            bool visuals=layerVisualRefresh;var map=layerRefreshDocument;
+            layerRefreshQueued=false;layerVisualRefresh=false;layerRefreshDocument=null;
+            if(this==null||document!=map)return;
+            RefreshLayers();
+            if(visuals){RefreshPaint();InvalidatePreview();}
+        }
+        private void QueueLayerRefresh(bool visuals)
+        {
+            layerVisualRefresh|=visuals;layerRefreshDocument=document;
+            if(layerRefreshQueued)return;layerRefreshQueued=true;
+            EditorApplication.delayCall+=FlushLayerRefresh;
+        }
+        private bool LayerHasContent(PixelMapDocument.PaintLayer layer,bool includeHidden=false)
+        {
+            if((layer.visible||includeHidden)&&layer.pixels!=null)foreach(var pixel in layer.pixels)if(pixel.a!=0)return true;
+            return (layer.visible||includeHidden)&&(document.decorations.Exists(p=>p.layerId==layer.id)||document.tileProps.Exists(p=>p.layerId==layer.id));
+        }
+        private void ChangeLayerStructure(Action change,string title,bool visuals)
+        {
+            if(document==null||refreshingLayers)return;
+            EndStroke();CancelLayerDrag();Undo.IncrementCurrentGroup();Undo.SetCurrentGroupName(title);
+            // RecordObject diffs nested pixel arrays after indices move; even an empty row shifts huge arrays.
+            // Structural edits use one complete snapshot and never run that per-property array diff.
+            Undo.RegisterCompleteObjectUndo(document,title);change();EditorUtility.SetDirty(document);
+            nextRecovery=Math.Max(nextRecovery,EditorApplication.timeSinceStartup+5);
+            // List edits finish first. Rendering and focus changes run outside pointer dispatch.
+            QueueLayerRefresh(visuals);RecordOperation(title);
+        }
+        private bool LayerInteractionActive=>cancelLayerDrag!=null||layerDropPending||layerRefreshQueued;
         private void CancelLayerDrag(){var cancel=cancelLayerDrag;cancelLayerDrag=null;cancel?.Invoke();}
         private void ActivateBucket(){EndStroke();selectionTool=SelectionTool.Ninguna;RefreshSelectionTools();if(brush!=Brush.Cesped)brush=Brush.Pintar;bucket=true;bucketToggle?.SetValueWithoutNotify(true);RefreshToolUI();}
         private void BuildBucketTool(VisualElement rail)
@@ -43,8 +76,8 @@ namespace HeartDev.MapWorkshop
             var section=Section(parent,"CAPAS");
             section.tooltip="De arriba hacia abajo. Selecciona dónde pintar; las alturas son comunes.";
             var row=Row("layer-toolbar");section.Add(row);
-            row.Add(LayerAction("+ Capa",()=>{if(document==null)return;ChangeMap(()=>activeLayerId=document.AddLayer("Capa "+(document.layers.Count+1)).id);RefreshLayers();}));
-            row.Add(LayerAction("Limpiar",()=>{var layer=ActiveLayer;if(layer==null||layer.locked)return;ChangeMap(()=>{Array.Clear(layer.pixels,0,layer.pixels.Length);Array.Clear(layer.surfaces,0,layer.surfaces.Length);document.decorations.RemoveAll(p=>p.layerId==layer.id);});}));
+            row.Add(LayerAction("+ Capa",()=>{if(document==null)return;ChangeLayerStructure(()=>activeLayerId=document.AddLayer("Capa "+(document.layers.Count+1)).id,"Crear capa",false);}));
+            row.Add(LayerAction("Limpiar",()=>{var layer=ActiveLayer;if(layer==null||layer.locked)return;bool visuals=LayerHasContent(layer);ChangeLayerStructure(()=>{Array.Clear(layer.pixels,0,layer.pixels.Length);Array.Clear(layer.surfaces,0,layer.surfaces.Length);document.decorations.RemoveAll(p=>p.layerId==layer.id);document.tileProps.RemoveAll(p=>p.layerId==layer.id);selectedProps.Clear();selectedProp=-1;},"Limpiar capa",visuals);}));
             row.Add(LayerAction("Eliminar capa",DeleteActiveLayer));
             row.Add(LayerAction("Separar dibujo original en capas",SplitOriginal));
             layerList=new VisualElement();section.Add(layerList);RefreshLayers();
@@ -52,20 +85,35 @@ namespace HeartDev.MapWorkshop
         }
         private void RefreshLayers()
         {
+            if(refreshingLayers)return;refreshingLayers=true;
+            try
+            {
             CancelLayerDrag();
             if(layerList==null)return;layerList.Clear();if(document==null)return;
             for(int i=document.layers.Count-1;i>=0;i--)
             {
                 var layer=document.layers[i];var row=Row("layer-row");row.userData=layer.id;row.EnableInClassList("active-layer",layer.id==activeLayerId);layerList.Add(row);
                 var handle=new Label("⠿"){tooltip="Arrastra para reordenar esta capa"};handle.AddToClassList("layer-grip");row.Add(handle);AttachLayerDrag(handle,row,layer);
-                var eye=new Toggle{value=layer.visible,tooltip="Mostrar esta capa"};eye.RegisterValueChangedCallback(e=>ChangeMap(()=>layer.visible=e.newValue));row.Add(eye);
-                var name=new TextField{value=layer.name};name.style.flexGrow=1;name.style.minWidth=35;name.RegisterValueChangedCallback(e=>ChangeMap(()=>layer.name=e.newValue));row.Add(name);
+                var eye=LayerIconToggle(layer.visible,"eye-open","eye-closed","Ocultar capa","Mostrar capa",value=>ChangeLayerStructure(()=>layer.visible=value,"Visibilidad de capa",LayerHasContent(layer,true)));row.Add(eye);
+                var name=new TextField{value=layer.name};name.style.flexGrow=1;name.style.minWidth=35;name.RegisterValueChangedCallback(e=>{if(refreshingLayers||layer.name==e.newValue)return;Undo.RecordObject(document,"Renombrar capa");layer.name=e.newValue;EditorUtility.SetDirty(document);RecordOperation("Renombrar capa");});row.Add(name);
                 name.RegisterCallback<FocusInEvent>(_=>SelectLayer(layer.id));
-                var locked=new Toggle{value=layer.locked,tooltip="Bloquear edición"};locked.RegisterValueChangedCallback(e=>ChangeMap(()=>layer.locked=e.newValue));row.Add(locked);
+                var locked=LayerIconToggle(layer.locked,"lock-closed","lock-open","Desbloquear capa","Bloquear capa",value=>ChangeLayerStructure(()=>layer.locked=value,"Bloquear capa",false));row.Add(locked);
                 row.RegisterCallback<PointerDownEvent>(_=>SelectLayer(layer.id));
             }
             layerList.Add(Caption(document.originalInLayers?"Original separado · Ctrl+Z deshace":"Base original conservada debajo · puedes separarla","hint"));
             RefreshLayerStyle();
+            }
+            finally{refreshingLayers=false;}
+        }
+        private Toggle LayerIconToggle(bool value,string onIcon,string offIcon,string onHint,string offHint,Action<bool> change)
+        {
+            var toggle=new Toggle();toggle.SetValueWithoutNotify(value);toggle.AddToClassList("layer-state-toggle");
+            var input=toggle.Q<VisualElement>(className:"unity-toggle__input");
+            var checkmark=toggle.Q<VisualElement>(className:"unity-toggle__checkmark");if(checkmark!=null)checkmark.style.display=DisplayStyle.None;
+            var image=new UnityEngine.UIElements.Image{pickingMode=PickingMode.Ignore,scaleMode=ScaleMode.ScaleToFit};image.AddToClassList("layer-state-icon");
+            (input??toggle).Add(image);
+            void SetIcon(bool state){image.vectorImage=AssetDatabase.LoadAssetAtPath<VectorImage>("Assets/HeartDev/MapWorkshop/Editor/Icons/"+(state?onIcon:offIcon)+".svg");toggle.tooltip=state?onHint:offHint;}
+            SetIcon(value);toggle.RegisterValueChangedCallback(e=>{SetIcon(e.newValue);change(e.newValue);});return toggle;
         }
         private Button LayerAction(string title,Action action)
         {
@@ -73,14 +121,15 @@ namespace HeartDev.MapWorkshop
         }
         private void SelectLayer(string id)
         {
-            if(activeLayerId==id)return;
+            if(refreshingLayers||activeLayerId==id)return;
             activeLayerId=id;foreach(var row in layerList.Children())row.EnableInClassList("active-layer",row.userData as string==id);
             RefreshLayerStyle();
         }
         private void DeleteActiveLayer()
         {
             var layer=ActiveLayer;if(layer==null)return;if(layer.locked){status.text="Desbloquea la capa antes de eliminarla.";return;}
-            ChangeMap(()=>{int index=document.layers.IndexOf(layer);document.layers.Remove(layer);document.decorations.RemoveAll(p=>p.layerId==layer.id);activeLayerId=document.layers.Count>0?document.layers[Mathf.Min(index,document.layers.Count-1)].id:null;});RefreshLayers();
+            bool visuals=LayerHasContent(layer);
+            ChangeLayerStructure(()=>{int index=document.layers.IndexOf(layer);document.layers.Remove(layer);document.decorations.RemoveAll(p=>p.layerId==layer.id);document.tileProps.RemoveAll(p=>p.layerId==layer.id);activeLayerId=document.layers.Count>0?document.layers[Mathf.Min(index,document.layers.Count-1)].id:null;selectedProps.Clear();selectedProp=-1;},"Eliminar capa",visuals);
         }
         private void AttachLayerDrag(VisualElement handle,VisualElement row,PixelMapDocument.PaintLayer layer)
         {
@@ -111,11 +160,11 @@ namespace HeartDev.MapWorkshop
                 bool above=target!=null&&e.position.y<target.worldBound.center.y;var map=document;
                 CancelLayerDrag();e.StopImmediatePropagation();if(targetId==null)return;
                 // Finish pointer dispatch before rebuilding the list or reading textures from the GPU.
-                layerDropPending=true;rootVisualElement.schedule.Execute(()=>
+                layerDropPending=true;EditorApplication.delayCall+=()=>
                 {
                     try{if(this!=null&&document==map)CommitLayerReorder(layer.id,targetId,above);}
                     finally{layerDropPending=false;}
-                });
+                };
             });
             handle.RegisterCallback<PointerCancelEvent>(_=>{if(pressed)CancelLayerDrag();});
             handle.RegisterCallback<PointerCaptureOutEvent>(_=>{if(pressed)CancelLayerDrag();});
@@ -128,13 +177,13 @@ namespace HeartDev.MapWorkshop
             if(sourceIndex<0||targetIndex<0||sourceIndex==targetIndex)return;
             int insertion=targetIndex+(above?1:0);if(sourceIndex<insertion)insertion--;
             if(insertion==sourceIndex)return;
-            ChangeMap(()=>{var source=document.layers[sourceIndex];document.layers.RemoveAt(sourceIndex);document.layers.Insert(insertion,source);activeLayerId=sourceId;},"Reordenar capa");
-            RefreshLayers();
+            bool visuals=LayerHasContent(document.layers[sourceIndex]);
+            ChangeLayerStructure(()=>{var source=document.layers[sourceIndex];document.layers.RemoveAt(sourceIndex);document.layers.Insert(insertion,source);activeLayerId=sourceId;},"Reordenar capa",visuals);
         }
         private void SplitOriginal()
         {
             if(document==null||document.originalInLayers)return;
-            ChangeMap(()=>
+            ChangeLayerStructure(()=>
             {
                 var originals=new List<PixelMapDocument.PaintLayer>();
                 for(byte type=0;type<3;type++)
@@ -150,7 +199,7 @@ namespace HeartDev.MapWorkshop
                     if(used)originals.Add(layer);
                 }
                 document.layers.InsertRange(0,originals);document.originalInLayers=true;
-            });RefreshLayers();
+            },"Separar dibujo original en capas",true);
         }
         private void BuildFillControls(VisualElement parent)
         {

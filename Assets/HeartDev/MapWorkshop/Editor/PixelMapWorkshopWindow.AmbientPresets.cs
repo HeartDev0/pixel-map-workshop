@@ -13,7 +13,7 @@ namespace HeartDev.MapWorkshop
     {
         [SerializeField] private int ambientPresetIndex;
         [SerializeField] private Sprite ambientPresetSprite;
-        [SerializeField] private Sprite[] ambientPresetSources=new Sprite[15];
+        [SerializeField] private Sprite[] ambientPresetSources=new Sprite[23];
         [SerializeField] private bool useAmbientVariants=true;
         [SerializeField] private float ambientPresetIntensity=1,ambientPresetSpeed=1,ambientPresetVariation=.25f;
         private ObjectField ambientPresetSpriteField;
@@ -65,7 +65,7 @@ namespace HeartDev.MapWorkshop
             if(model!=null&&model.root!=null)
             {
                 PixelMapBaker.RefreshAmbientZones(document,curvedPreview?previewCurvature:0,viewPosition*document.height/document.pixelsPerUnit,model);
-                foreach(var ps in model.ambientSystems)ps.Simulate(Mathf.Max(1,ps.main.duration),false,true,false);
+                PixelMapBaker.SimulateAmbient(model,0,true);
             }
             ambientThumbnailSignature=null;ambientPreviewSignature=null;RequestPreviewRepaint();RecordOperation(title);
         }
@@ -73,7 +73,7 @@ namespace HeartDev.MapWorkshop
         {
             refreshAmbientPanel=refresh;
             if(ambientPresetSources==null||ambientPresetSources.Length!=PixelMapAmbientPresets.All.Count)Array.Resize(ref ambientPresetSources,PixelMapAmbientPresets.All.Count);
-            var fold=new Foldout{text="Biblioteca de ambientes · 15 presets",value=false};parent.Add(fold);
+            var fold=new Foldout{text="Biblioteca de ambientes Â· "+PixelMapAmbientPresets.All.Count+" presets",value=false};parent.Add(fold);
             var search=new TextField("Buscar ambiente");fold.Add(search);
             search.RegisterValueChangedCallback(e=>{if(ambientPresetButtons==null)return;for(int i=0;i<ambientPresetButtons.Length;i++){var preset=PixelMapAmbientPresets.All[i];ambientPresetButtons[i].style.display=(preset.name+" "+preset.hint).IndexOf(e.newValue??"",StringComparison.OrdinalIgnoreCase)>=0?DisplayStyle.Flex:DisplayStyle.None;}});
             var grid=Row();grid.style.flexWrap=Wrap.Wrap;fold.Add(grid);ambientPresetButtons=new Button[PixelMapAmbientPresets.All.Count];
@@ -85,24 +85,24 @@ namespace HeartDev.MapWorkshop
             ambientPresetSpriteField=new ObjectField("Sprite para este preset"){objectType=typeof(Sprite),allowSceneObjects=false,value=ambientPresetSprite};ambientPresetSpriteField.RegisterValueChangedCallback(e=>{ambientPresetSprite=e.newValue as Sprite;ambientPresetSources[ambientPresetIndex]=ambientPresetSprite;RefreshAmbientPreset();});fold.Add(ambientPresetSpriteField);
             var variants=new Toggle("Mezclar variantes de la paleta"){value=useAmbientVariants};variants.RegisterValueChangedCallback(e=>{useAmbientVariants=e.newValue;RefreshAmbientPreset();});fold.Add(variants);
             void PreviewSlider(string label,float min,float max,float value,Action<float> set){var slider=new Slider(label,min,max){value=value,showInputField=true};slider.RegisterValueChangedCallback(e=>{set(e.newValue);RefreshAmbientPreset();});fold.Add(slider);}
-            PreviewSlider("Intensidad",0,2,ambientPresetIntensity,v=>ambientPresetIntensity=v);PreviewSlider("Ritmo",0,3,ambientPresetSpeed,v=>ambientPresetSpeed=v);PreviewSlider("Variación natural",0,1,ambientPresetVariation,v=>ambientPresetVariation=v);
+            PreviewSlider("Intensidad",0,2,ambientPresetIntensity,v=>ambientPresetIntensity=v);PreviewSlider("Ritmo",0,3,ambientPresetSpeed,v=>ambientPresetSpeed=v);PreviewSlider("VariaciÃ³n natural",0,1,ambientPresetVariation,v=>ambientPresetVariation=v);
             ambientPresetDescription=Caption("","hint");fold.Add(ambientPresetDescription);
             ambientActiveToggle=new Toggle("Ver zona activa en el visor"){value=previewActiveAmbient};ambientActiveToggle.RegisterValueChangedCallback(e=>{previewActiveAmbient=e.newValue;if(e.newValue)SetAmbientPreset3D(false);ambientEffectPreview?.MarkDirtyRepaint();RequestPreviewRepaint();});fold.Add(ambientActiveToggle);
             ambient3DToggle=new Toggle("Previsualizar preset en 3D"){name="ambient-preset-preview-3d",value=previewPresetIn3D};
             ambient3DToggle.RegisterValueChangedCallback(e=>SetAmbientPreset3D(e.newValue));fold.Add(ambient3DToggle);
-            fold.Add(Caption("Vista temporal con partículas reales sobre el área seleccionada. Sin selección, usa la zona activa o el encuadre actual. Aplicar / Crear guarda el efecto en el mapa.","hint"));
+            fold.Add(Caption("Vista temporal con partÃ­culas reales sobre el Ã¡rea seleccionada. Sin selecciÃ³n, usa la zona activa o el encuadre actual. Aplicar / Crear guarda el efecto en el mapa.","hint"));
             ambientEffectPreview=new IMGUIContainer(DrawAmbientEffectPreview);ambientEffectPreview.style.height=160;ambientEffectPreview.style.flexShrink=0;fold.Add(ambientEffectPreview);
-            var actions=Row();actions.style.flexWrap=Wrap.Wrap;fold.Add(actions);actions.Add(Button("Aplicar a zona activa",()=>ApplyAmbientPreset(false)));actions.Add(Button("Crear en selección",()=>ApplyAmbientPreset(true)));
-            var bounds=new Toggle("Mostrar límites de ambientes en 3D"){value=showAmbientBounds};bounds.RegisterValueChangedCallback(e=>{showAmbientBounds=e.newValue;RequestPreviewRepaint();});fold.Add(bounds);
-            var pause=new Toggle("Pausar previsualización"){value=pauseAmbience};pause.RegisterValueChangedCallback(e=>{pauseAmbience=e.newValue;RequestPreviewRepaint();ambientEffectPreview.MarkDirtyRepaint();});fold.Add(pause);
-            fold.Add(Button("Reiniciar previsualización",()=>{DisposeAmbientPresetPreview();DisposeAmbientThumbnail();if(model!=null)foreach(var ps in model.ambientSystems)if(ps!=null)ps.Simulate(Mathf.Max(1,ps.main.duration),false,true,false);RequestPreviewRepaint();ambientEffectPreview?.MarkDirtyRepaint();}));
+            var actions=Row();actions.style.flexWrap=Wrap.Wrap;fold.Add(actions);actions.Add(Button("Aplicar a zona activa",()=>ApplyAmbientPreset(false)));actions.Add(Button("Crear en selecciÃ³n",()=>ApplyAmbientPreset(true)));
+            var bounds=new Toggle("Mostrar lÃ­mites de ambientes en 3D"){value=showAmbientBounds};bounds.RegisterValueChangedCallback(e=>{showAmbientBounds=e.newValue;RequestPreviewRepaint();});fold.Add(bounds);
+            var pause=new Toggle("Pausar previsualizaciÃ³n"){value=pauseAmbience};pause.RegisterValueChangedCallback(e=>{pauseAmbience=e.newValue;RequestPreviewRepaint();ambientEffectPreview.MarkDirtyRepaint();});fold.Add(pause);
+            fold.Add(Button("Reiniciar previsualizaciÃ³n",()=>{DisposeAmbientPresetPreview();DisposeAmbientThumbnail();PixelMapBaker.SimulateAmbient(model,0,true);RequestPreviewRepaint();ambientEffectPreview?.MarkDirtyRepaint();}));
             fold.Add(Button("Enfocar zona activa",FocusAmbientZone));RefreshAmbientPreset();
         }
         private void RefreshAmbientPreset()
         {
             ambientPresetIndex=Mathf.Clamp(ambientPresetIndex,0,PixelMapAmbientPresets.All.Count-1);var preset=PixelMapAmbientPresets.All[ambientPresetIndex];var sprite=SpriteForPreset(preset);
             if(ambientPresetButtons!=null)for(int i=0;i<ambientPresetButtons.Length;i++)ambientPresetButtons[i].EnableInClassList("selected",i==ambientPresetIndex);
-            if(ambientPresetDescription!=null)ambientPresetDescription.text=preset.hint+(sprite==null?" Falta un sprite: asigna uno de tus recursos para utilizar este ambiente.":" "+PixelMapBaker.AmbientSprites(CreateAmbientPresetZone(preset,sprite)).Count+" variante(s) · hasta "+preset.count+" partículas por zona.");
+            if(ambientPresetDescription!=null)ambientPresetDescription.text=preset.hint+(!preset.RequiresSprite?" Ajusta fuerza y escala en Ajustes marinos después de crear la zona.":sprite==null?" Falta un sprite: asigna uno de tus recursos para utilizar este ambiente.":" "+PixelMapBaker.AmbientSprites(CreateAmbientPresetZone(preset,sprite)).Count+" variante(s) Â· hasta "+preset.count+" partÃ­culas por zona.");
             ambientEffectPreview?.MarkDirtyRepaint();
             ambientPreviewSignature=null;ambientThumbnailSignature=null;RequestPreviewRepaint();
         }
@@ -122,18 +122,18 @@ namespace HeartDev.MapWorkshop
         {
             if(!previewPresetIn3D||previewActiveAmbient||document==null||preview==null){DisposeAmbientPresetPreview();return;}
             var preset=PixelMapAmbientPresets.All[Mathf.Clamp(ambientPresetIndex,0,PixelMapAmbientPresets.All.Count-1)];
-            var sprite=SpriteForPreset(preset);if(sprite==null){DisposeAmbientPresetPreview();return;}
+            var sprite=SpriteForPreset(preset);if(sprite==null&&preset.RequiresSprite){DisposeAmbientPresetPreview();return;}
             var zone=CreateAmbientPresetZone(preset,sprite);
             PlaceAmbientPreviewZone(zone);
             if(zone.area.width<=0||zone.area.height<=0){DisposeAmbientPresetPreview();return;}
             float curve=curvedPreview?previewCurvature:0,focus=viewPosition*document.height/document.pixelsPerUnit;
             string signature=document.GetEntityId()+":"+JsonUtility.ToJson(zone)+":"+curve.ToString("R")+":"+focus.ToString("R");
             if(ambientPresetModel!=null&&ambientPreviewSignature==signature)return;
-            DisposeAmbientPresetPreview();var updated=PixelMapBaker.BuildAmbientPreview(document,zone,curve,focus);
+            DisposeAmbientPresetPreview();var updated=PixelMapBaker.BuildAmbientPreview(document,zone,curve,focus,model?.root?.transform);
             try
             {
                 preview.AddSingleGO(updated.root);
-                foreach(var ps in updated.ambientSystems)ps.Simulate(Mathf.Max(1,zone.lifetime),false,true,false);
+                PixelMapBaker.SimulateAmbient(updated,0,true);
             }
             catch{updated.Dispose();throw;}
             ambientPresetModel=updated;ambientPreviewZone=zone;ambientPreviewSignature=signature;
@@ -142,15 +142,15 @@ namespace HeartDev.MapWorkshop
         {
             if(document==null)return;if(create&&!RequireArea())return;
             if(!create&&document.ambientZones.Count==0){status.text="Crea una zona de ambiente primero.";return;}
-            if(create&&document.ambientZones.Count>=32){status.text="Límite de 32 zonas de ambiente.";return;}
+            if(create&&document.ambientZones.Count>=32){status.text="LÃ­mite de 32 zonas de ambiente.";return;}
             var preset=PixelMapAmbientPresets.All[ambientPresetIndex];var sprite=SpriteForPreset(preset);
             if(sprite==null&&!create)sprite=document.ambientZones[Mathf.Clamp(ambientZoneIndex,0,document.ambientZones.Count-1)].sprite;
-            if(sprite==null){status.text="Asigna uno de tus sprites al preset.";return;}
+            if(sprite==null&&preset.RequiresSprite){status.text="Asigna uno de tus sprites al preset.";return;}
             Undo.RegisterCompleteObjectUndo(document,"Aplicar preset de ambiente");var zone=CreateAmbientPresetZone(preset,sprite);
             if(create){zone.area=selectionBounds;document.ambientZones.Add(zone);ambientZoneIndex=document.ambientZones.Count-1;}
             else{ambientZoneIndex=Mathf.Clamp(ambientZoneIndex,0,document.ambientZones.Count-1);var previous=document.ambientZones[ambientZoneIndex];zone.area=previous.area;zone.name=previous.name;zone.enabled=previous.enabled;zone.seedOffset=previous.seedOffset;document.ambientZones[ambientZoneIndex]=zone;}
             SetAmbientPreset3D(false);previewActiveAmbient=true;ambientActiveToggle?.SetValueWithoutNotify(true);
-            FinishAmbientEdit("Aplicar ambiente · "+preset.name);refreshAmbientPanel?.Invoke();
+            FinishAmbientEdit("Aplicar ambiente Â· "+preset.name);refreshAmbientPanel?.Invoke();
         }
         private void FocusAmbientZone()
         {
@@ -175,7 +175,7 @@ namespace HeartDev.MapWorkshop
             bool active=previewActiveAmbient&&document.ambientZones.Count>0;
             var zone=active?document.ambientZones[Mathf.Clamp(ambientZoneIndex,0,document.ambientZones.Count-1)]:CreateAmbientPresetZone(preset,SpriteForPreset(preset));
             if(!active)PlaceAmbientPreviewZone(zone);
-            if(PixelMapBaker.AmbientSprites(zone).Count==0){DisposeAmbientThumbnail();GUI.Label(rect,"Asigna un sprite para ver el efecto real");return;}
+            if(!PixelMapBaker.CanRenderAmbient(zone)){DisposeAmbientThumbnail();GUI.Label(rect,"Asigna un sprite para ver el efecto real");return;}
             string signature=document.GetEntityId()+":"+document.ambientParticleBudget+":"+JsonUtility.ToJson(zone);
             try
             {
@@ -188,18 +188,18 @@ namespace HeartDev.MapWorkshop
                 if(ambientThumbnailModel==null||ambientThumbnailSignature!=signature)
                 {
                     ambientThumbnailModel?.Dispose();ambientThumbnailModel=PixelMapBaker.BuildAmbientPreview(document,zone,0,0);ambientThumbnailRenderer.AddSingleGO(ambientThumbnailModel.root);
-                    foreach(var ps in ambientThumbnailModel.ambientSystems)ps.Simulate(Mathf.Max(1,zone.lifetime),false,true,false);
+                    PixelMapBaker.SimulateAmbient(ambientThumbnailModel,0,true);
                     ambientThumbnailSignature=signature;ambientThumbnailTime=EditorApplication.timeSinceStartup;
                 }
                 double now=EditorApplication.timeSinceStartup;float delta=Mathf.Clamp((float)(now-ambientThumbnailTime),0,.2f);ambientThumbnailTime=now;
-                if(!pauseAmbience)foreach(var ps in ambientThumbnailModel.ambientSystems)ps.Simulate(delta,false,false,false);
+                if(!pauseAmbience)PixelMapBaker.SimulateAmbient(ambientThumbnailModel,delta);
                 float extent=Mathf.Max(zone.area.width,zone.area.height,zone.heightPixels)/(float)document.pixelsPerUnit;
                 var center=zone.area.center;var aim=new Vector3((center.x-document.width*.5f)/document.pixelsPerUnit,document.RawSurfaceHeight(center.x,center.y)+zone.heightPixels*.5f/document.pixelsPerUnit,center.y/document.pixelsPerUnit);
                 var rotation=Quaternion.Euler(20,-15,0);ambientThumbnailRenderer.camera.transform.SetPositionAndRotation(aim-rotation*Vector3.forward*Mathf.Max(1,extent*2),rotation);
                 ambientThumbnailRenderer.BeginPreview(rect,GUIStyle.none);Texture image=null;
                 try{ambientThumbnailRenderer.Render(true);}finally{image=ambientThumbnailRenderer.EndPreview();}
                 if(image!=null){image.filterMode=FilterMode.Point;GUI.DrawTexture(rect,image,ScaleMode.StretchToFill,false);}
-                GUI.Label(new Rect(rect.x+5,rect.y+4,rect.width-10,20),"Partículas reales · "+ambientThumbnailModel.ambientSystems.Sum(ps=>ps.particleCount));
+                GUI.Label(new Rect(rect.x+5,rect.y+4,rect.width-10,20),(PixelMapBaker.IsMarineLight(PixelMapBaker.AmbientMotionFor(zone))?"Luz animada Â· "+ambientThumbnailModel.drawGroups+" grupos":"PartÃ­culas reales Â· "+ambientThumbnailModel.ambientSystems.Sum(ps=>ps.particleCount)));
             }
             catch(ExitGUIException){throw;}
             catch(Exception ex){DisposeAmbientThumbnail();GUI.Label(rect,"No se pudo mostrar el ambiente: "+ex.Message);}
@@ -222,7 +222,7 @@ namespace HeartDev.MapWorkshop
             var b=zone.area;float h=zone.heightPixels/(float)document.pixelsPerUnit;
             var corners=new[]{MapWorld(b.xMin,b.yMin),MapWorld(b.xMax,b.yMin),MapWorld(b.xMax,b.yMax),MapWorld(b.xMin,b.yMax)};Handles.color=new Color(.4f,.9f,1,.8f);
             for(int i=0;i<4;i++){var a=Project(rect,corners[i]);var c=Project(rect,corners[(i+1)%4]);var top=Project(rect,corners[i]+Vector3.up*h);var nextTop=Project(rect,corners[(i+1)%4]+Vector3.up*h);if(rect.Contains(a)&&rect.Contains(c))Handles.DrawDottedLine(a,c,4);if(rect.Contains(a)&&rect.Contains(top))Handles.DrawDottedLine(a,top,4);if(rect.Contains(top)&&rect.Contains(nextTop))Handles.DrawDottedLine(top,nextTop,4);}
-            var label=Project(rect,(corners[0]+corners[2])*.5f+Vector3.up*h);if(rect.Contains(label))GUI.Label(new Rect(label.x,label.y,220,24),zone.name+" · "+zone.maxParticles+" máx.");
+            var label=Project(rect,(corners[0]+corners[2])*.5f+Vector3.up*h);if(rect.Contains(label))GUI.Label(new Rect(label.x,label.y,220,24),zone.name+" Â· "+zone.maxParticles+" mÃ¡x.");
         }
     }
 }

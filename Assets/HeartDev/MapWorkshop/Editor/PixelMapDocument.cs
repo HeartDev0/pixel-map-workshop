@@ -121,7 +121,7 @@ namespace HeartDev.MapWorkshop
         {
             width=Mathf.Clamp(w,16,1024);height=Mathf.Clamp(h,16,2048);pixelsPerUnit=Mathf.Clamp(ppu,8,128);
             heightStep=1f/pixelsPerUnit;
-            pixels=new Color32[width*height];elevations=new int[pixels.Length];surfaces=new byte[pixels.Length];decorations.Clear();layers.Clear();paintMaterials.Clear();originalInLayers=false;
+            pixels=new Color32[width*height];elevations=new int[pixels.Length];surfaces=new byte[pixels.Length];decorations.Clear();tileProps.Clear();layers.Clear();paintMaterials.Clear();originalInLayers=false;
             for(int i=0;i<pixels.Length;i++)pixels[i]=new Color32(104,185,71,255);
         }
         public bool IsValid=>width>0&&height>0&&pixels!=null&&pixels.Length==width*height&&elevations!=null&&elevations.Length==pixels.Length;

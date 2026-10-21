@@ -1,7 +1,13 @@
 {
   "name": "HeartDev.MapWorkshop.Editor",
   "rootNamespace": "HeartDev.MapWorkshop",
-  "references": ["Unity.RenderPipelines.Universal.Runtime"],
-  "includePlatforms": ["Editor"],
+  "references": [
+    "Unity.RenderPipelines.Universal.Runtime",
+    "HeartDev.MapWorkshop.Runtime",
+    "HeartDev.TilePropStudio.Runtime"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
   "autoReferenced": true
 }

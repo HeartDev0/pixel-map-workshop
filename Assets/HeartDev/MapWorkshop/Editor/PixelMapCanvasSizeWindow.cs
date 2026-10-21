@@ -116,6 +116,8 @@ namespace HeartDev.MapWorkshop
             foreach(var layer in map.layers){layer.pixels=Shift(layer.pixels,new Color32());layer.surfaces=Shift(layer.surfaces,(byte)0);if(layer.materialIds.Length>0)layer.materialIds=Shift(layer.materialIds,0);if(layer.pattern!=null)layer.pattern.offset+=new Vector2Int(left,bottom);}
             if(map.waterPattern!=null)map.waterPattern.offset+=new Vector2Int(left,bottom);
             foreach(var material in map.paintMaterials)if(material.pattern!=null)material.pattern.offset+=new Vector2Int(left,bottom);
+            foreach(var prop in map.tileProps)prop.pixel+=new Vector2Int(left,bottom);
+            map.tileProps.RemoveAll(p=>p.pixel.x<0||p.pixel.y<0||p.pixel.x>=w||p.pixel.y>=h);
             foreach(var prop in map.decorations)prop.pixel+=new Vector2Int(left,bottom);
             map.decorations.RemoveAll(p=>p.pixel.x<0||p.pixel.y<0||p.pixel.x>=w||p.pixel.y>=h);
             var offset=new Vector2Int(left,bottom);

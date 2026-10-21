@@ -105,7 +105,7 @@ namespace HeartDev.MapWorkshop
                 var zone=document.ambientZones[ambientZoneIndex];
                 var enabled=new Toggle("Ambiente activo"){value=zone.enabled};enabled.RegisterValueChangedCallback(e=>ChangeAmbient(()=>zone.enabled=e.newValue,"Activar ambiente"));content.Add(enabled);
                 var name=new TextField("Nombre"){value=zone.name};name.RegisterValueChangedCallback(e=>ChangeAmbient(()=>zone.name=e.newValue,"Nombre ambiente"));content.Add(name);
-                var behavior=new EnumField("Comportamiento",PixelMapBaker.AmbientMotionFor(zone));behavior.RegisterValueChangedCallback(e=>ChangeAmbient(()=>zone.motion=(PixelMapDocument.AmbientMotion)e.newValue,"Movimiento de ambiente"));content.Add(behavior);
+                var behavior=new EnumField("Comportamiento",PixelMapBaker.AmbientMotionFor(zone));behavior.RegisterValueChangedCallback(e=>{ChangeAmbient(()=>zone.motion=(PixelMapDocument.AmbientMotion)e.newValue,"Movimiento de ambiente");Refresh();});content.Add(behavior);
                 var sprite=new ObjectField("Sprite principal"){objectType=typeof(Sprite),value=zone.sprite,allowSceneObjects=false};sprite.RegisterValueChangedCallback(e=>ChangeAmbient(()=>zone.sprite=e.newValue as Sprite,"Sprite ambiente"));content.Add(sprite);
                 var variants=new Foldout{text="Variantes de sprite · hasta 4 en total",value=false};content.Add(variants);
                 for(int i=0;i<3;i++)
@@ -123,6 +123,7 @@ namespace HeartDev.MapWorkshop
                 var velocity=new Vector3Field("Velocidad X/Y/Z"){value=zone.velocity};velocity.RegisterValueChangedCallback(e=>ChangeAmbient(()=>{zone.velocity=e.newValue;zone.customMotion=true;},"Vector de ambiente"));content.Add(velocity);
                 SliderControl("Giro · rad/s",-3,3,zone.spin,v=>zone.spin=v);SliderControl("Tamaño",.1f,3,zone.size,v=>zone.size=v);SliderControl("Opacidad",0,1,zone.opacity,v=>zone.opacity=v);SliderControl("Turbulencia",0,.2f,zone.turbulence,v=>zone.turbulence=v);
                 var blink=new Toggle("Destellos"){value=zone.flicker};blink.RegisterValueChangedCallback(e=>ChangeAmbient(()=>zone.flicker=e.newValue,"Destellos de ambiente"));content.Add(blink);
+                BuildMarineControls(content,zone);
                 AddInt(content,"Semilla de variación",zone.seedOffset,v=>ChangeAmbient(()=>zone.seedOffset=v,"Semilla ambiente"));
                 content.Add(Button("Usar selección como nueva área",()=>{if(RequireArea())ChangeAmbient(()=>zone.area=selectionBounds,"Cambiar área ambiente");}));
                 var actions=Row();actions.style.flexWrap=Wrap.Wrap;content.Add(actions);
@@ -136,8 +137,7 @@ namespace HeartDev.MapWorkshop
         private void UpdateAmbientPreview()
         {
             double now=EditorApplication.timeSinceStartup;float delta=Mathf.Clamp((float)(now-ambientPreviewTime),0,.2f);ambientPreviewTime=now;
-            if(pauseAmbience)return;foreach(var ps in model.ambientSystems)if(ps!=null)ps.Simulate(delta,false,false,false);
-            if(ambientPresetModel!=null)foreach(var ps in ambientPresetModel.ambientSystems)if(ps!=null)ps.Simulate(delta,false,false,false);
+            if(pauseAmbience)return;PixelMapBaker.SimulateAmbient(model,delta);PixelMapBaker.SimulateAmbient(ambientPresetModel,delta);
         }
     }
 }

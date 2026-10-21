@@ -1,6 +1,6 @@
 # Pixel Map Workshop
 
-**A pixel-art world builder for Unity, by HeartDev.** Paint terrain in 2D, inspect it in a curved 3D preview, place sprite props and bake your map to a prefab.
+**A pixel-art world builder for Unity, by HeartDev.** Paint terrain in 2D, inspect it in a curved 3D preview, place sprite props and bake your map to a prefab. Its companion **Tile Prop Studio** builds reusable modular props from tiles.
 
 ![Pixel Map Workshop — 2D painting and 3D preview](docs/screenshots/workspace.png)
 
@@ -24,6 +24,8 @@
 - Three-color shoreline water, animated foam and terrain distance gradients also inherited by grass clusters.
 - Fifteen distinct ambient behaviors with real Unity particle previews in both viewers, up to four sprite variants per zone, natural variation and a global particle budget.
 - Underwater algae animated in the shader on a single plane with ten height segments.
+- A separate Tile Prop Studio for constructing reusable tile-based props, editing geometry, and updating exported assets.
+- Blender-inspired modal commands for moving, rotating, scaling, duplicating and extruding selected geometry, with numeric input and undo.
 - Prefab baking and updates that preserve the connected prefab's references.
 - Manual saving, an automatic recovery copy and an operation history.
 
@@ -39,11 +41,11 @@ Unity, URP, fonts and unrelated third-party packages are not bundled.
 
 ## Install
 
-1. Download the official `PixelMapWorkshop-0.1.0.unitypackage` from [Releases](https://github.com/HeartDev0/pixel-map-workshop/releases), or download this repository and copy **`Assets/HeartDev/MapWorkshop`** into your project's `Assets/HeartDev/` directory. Keep the `.meta` files.
+1. Download the official `PixelMapWorkshop-0.1.0.unitypackage` from [Releases](https://github.com/HeartDev0/pixel-map-workshop/releases), or download this repository and copy **`Assets/HeartDev/MapWorkshop`** and **`Assets/HeartDev/TilePropStudio`** into your project's `Assets/HeartDev/` directory. Keep the `.meta` files; Map Workshop uses Tile Prop Studio's runtime assembly for tile props.
    The repository contains the latest changes; the tagged 0.1.0 package is the original preview.
 2. Install/enable URP and make sure the pipeline asset contains a **Universal Renderer Data** entry for 3D. You may keep a different renderer as your game's default.
-3. Open **Tools → HeartDev → Pixel Map Workshop**.
-4. Click **Nuevo…** and create your own map document. Add your own sprites to a prop library.
+3. Open **Tools → HeartDev → Pixel Map Workshop** to paint maps, or **Tools → HeartDev → Tile Prop Studio** to build a reusable tile prop.
+4. Click **Nuevo…** and create your own map or prop document. Add your own sprites/tilesets; exported tile props can be placed from Map Workshop's 3D prop library.
 
 The path `Assets/HeartDev/MapWorkshop` is currently required by the editor's stylesheet/icon lookup. This is an Assets-based tool, not a UPM package.
 
@@ -77,6 +79,22 @@ Detailed Spanish instructions: [Guía de uso](docs/GUIA_ES.md). License summary:
 | Add/remove a prop from the 3D selection | Shift+click |
 | Height while dragging a selected prop | Alt+drag |
 | Snap X rotation / cancel gizmo drag | Shift / Esc |
+
+### Tile Prop Studio shortcuts
+
+| Action | Shortcut |
+|---|---|
+| Toggle Object / Edit Mode | Tab |
+| Vertex / edge / face selection | 1 / 2 / 3 |
+| Move / rotate / scale / extrude | G / R / S / E |
+| Duplicate and move | Shift+D |
+| Select all / deselect / invert | A / Alt+A / Ctrl+I |
+| Select connected / hide / show | L / H / Alt+H |
+| Delete / command search | X or Delete / F3 |
+| Undo / redo | Ctrl+Z / Ctrl+Shift+Z |
+| Confirm / cancel modal operation | Enter / Esc |
+
+During Move, Rotate, Scale, Extrude and Duplicate, constrain to X/Y/Z, type a value, then press Enter. Esc restores the pre-operation geometry. The same operation logic is used by the gizmos. Snapping supports pixels, tiles, grid, vertices and angles.
 
 ## Screenshots
 

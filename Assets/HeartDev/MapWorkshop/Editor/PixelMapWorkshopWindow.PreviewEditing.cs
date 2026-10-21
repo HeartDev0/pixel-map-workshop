@@ -31,7 +31,7 @@ namespace HeartDev.MapWorkshop
             var row=Row();row.style.alignItems=Align.Center;parent.Add(row);
             var mode=new EnumField("En 3D",previewMode);mode.style.flexGrow=1;mode.RegisterValueChangedCallback(e=>{EndStroke();previewMode=(PreviewMode)e.newValue;RequestPreviewRepaint();});row.Add(mode);
             row.Add(new Button(DeletePickedProp){text="Eliminar prop",tooltip="Eliminar el prop seleccionado en 3D"});
-            selectedPropLabel=Caption("Botón derecho: girar · rueda: distancia · central: recorrer","hint");parent.Add(selectedPropLabel);
+            selectedPropLabel=Caption("Navegar: arrastrar para recorrer · botón derecho: girar · rueda: acercar · central: desplazar","hint");parent.Add(selectedPropLabel);
             selectMatchingPickedPropsButton=Button("Seleccionar todos del mismo tipo",SelectMatchingProps);
             selectMatchingPickedPropsButton.name="select-matching-picked-props";
             selectMatchingPickedPropsButton.tooltip="Selecciona los props que usan el mismo sprite en las capas editables del mapa.";
@@ -113,15 +113,13 @@ namespace HeartDev.MapWorkshop
         private void HandlePreviewInput(Rect rect)
         {
             int control=GUIUtility.GetControlID(0x4819,FocusType.Passive,rect);
-            var e=Event.current;if(HandlePropGizmoInput(rect))return;bool inside=rect.Contains(e.mousePosition);
-            if(e.type==EventType.ScrollWheel&&inside){distance=Mathf.Clamp(distance+e.delta.y*.15f,.8f,15);RequestPreviewRepaint();e.Use();return;}
-            if(e.type==EventType.MouseDrag&&inside&&e.button==1){yaw+=e.delta.x*.6f;pitch=Mathf.Clamp(pitch+e.delta.y*.5f,10,85);RequestPreviewRepaint();e.Use();return;}
-            if(e.type==EventType.MouseDrag&&inside&&e.button==2){viewPosition=Mathf.Clamp01(viewPosition+e.delta.y*.0015f);InvalidatePreview();e.Use();return;}
+            var e=Event.current;if(HandleTilePropInput(rect,e))return;if(HandleCameraNavigation(rect,control,e))return;if(HandlePropGizmoInput(rect))return;bool inside=rect.Contains(e.mousePosition);
             if(e.type==EventType.MouseUp&&previewDragging)
             {
                 previewDragging=false;previewHeightDrag=false;if(lineDragging)FinishPropLine();else if(painting)EndStroke();else if(previewMode==PreviewMode.Props)RecordOperation("Mover prop en 3D");if(GUIUtility.hotControl==previewControl)GUIUtility.hotControl=0;UpdatePickedLabel();e.Use();return;
             }
             if(e.type==EventType.KeyDown&&e.keyCode==KeyCode.Escape&&lineDragging){CancelPropLine();previewDragging=false;if(GUIUtility.hotControl==previewControl)GUIUtility.hotControl=0;e.Use();return;}
+            if(previewMode==PreviewMode.Navegar){previewHover=false;return;}
             if(!inside){if(e.type==EventType.MouseMove){previewHover=false;RequestPreviewRepaint();}return;}
             if(e.type!=EventType.MouseMove&&e.type!=EventType.MouseDown&&e.type!=EventType.MouseDrag)return;
             previewHover=HitTerrain(rect,e.mousePosition,out previewPixel);RequestPreviewRepaint();
@@ -176,7 +174,7 @@ namespace HeartDev.MapWorkshop
                     if(!On(dx-1,dy))Line(x,y,x,y+1);if(!On(dx+1,dy))Line(x+1,y,x+1,y+1);if(!On(dx,dy-1))Line(x,y,x+1,y);if(!On(dx,dy+1))Line(x,y+1,x+1,y+1);
                 }
             }
-            DrawPropGizmos(rect);DrawAmbientZoneBounds(rect);
+            DrawPropGizmos(rect);DrawTilePropSelection(rect);DrawAmbientZoneBounds(rect);
             }
             finally{Handles.EndGUI();}
         }

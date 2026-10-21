@@ -68,6 +68,12 @@ La mezcla usa posiciones enteras y tamaños nativos; no escala aleatoriamente lo
 
 La herramienta continúa separada de la campaña. No se cambian los mapas de juego ni se generan builds. Compilar en el Editor no demuestra rendimiento en Android ni valida por sí solo todos los flujos de pintura y recuperación.
 
+## Crear props de tiles
+
+**Tile Prop Studio** es una ventana adicional: **Tools → HeartDev → Tile Prop Studio**. Crea un documento, añade un tileset y construye caras sobre los planos XZ, XY o ZY. Guarda y exporta el prop; después actualiza la biblioteca 3D de Map Workshop para colocarlo en un mapa. Conserva el tamaño del tile y los píxeles por unidad para mantener la escala pixel art.
+
+En Object Mode se transforma el prop completo. Tab cambia a Edit Mode; 1/2/3 seleccionan vértices, bordes o caras. A selecciona todo, Alt+A limpia, Ctrl+I invierte y L selecciona geometría conectada. G/R/S/E mueven, rotan, escalan o extruyen; Shift+D duplica. Durante la operación, X/Y/Z fija el eje, escribe un valor y confirma con Enter. Esc cancela. Los gizmos comparten esta lógica y el deshacer. F3 abre el buscador; H/Alt+H ocultan o muestran; X/Supr elimina; Ctrl+Z y Ctrl+Shift+Z deshacen y rehacen.
+
 ## Agua, atmósfera y recuperación de materiales
 
 ### Agua de tres colores y espuma

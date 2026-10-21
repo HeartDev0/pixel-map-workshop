@@ -23,6 +23,12 @@ namespace HeartDev.MapWorkshop
             public bool animatedGrass;
             public bool animatedClouds;
             public readonly List<ParticleSystem> ambientSystems=new List<ParticleSystem>();
+            public readonly List<PixelMarineSwarm> marineSystems=new List<PixelMarineSwarm>();
+            public readonly List<GameObject> ambientRoots=new List<GameObject>();
+            public readonly List<Object> ambientResources=new List<Object>();
+            public readonly List<Material> ambientMaterials=new List<Material>();
+            public int ambientDrawGroups;
+            public float ambientTime;
             public readonly List<Material> animatedMaterials=new List<Material>();
             public int vertices,drawGroups;
             public readonly List<Object> owned=new List<Object>();
@@ -192,7 +198,7 @@ namespace HeartDev.MapWorkshop
                         MeshObject(decorationMesh.name,decorationMesh,propMaterial,result.root.transform,result,pair.Key.Item2,!pair.Key.Item3);
                     }
                 }
-                BuildBoxProps(map,curvature,focus,result);BuildPlatforms(map,curvature,focus,result);BuildWaterZones(map,curvature,focus,water,result);BuildWaterfalls(map,curvature,focus,result);BuildAmbientZones(map,curvature,focus,result);
+                BuildBoxProps(map,curvature,focus,result);BuildTileProps(map,curvature,focus,result);BuildPlatforms(map,curvature,focus,result);BuildWaterZones(map,curvature,focus,water,result);BuildWaterfalls(map,curvature,focus,result);BuildAmbientZones(map,curvature,focus,result);
                 if(map.cloudsEnabled)BuildClouds(map,curvature,focus,result);
                 return result;
             }
@@ -391,6 +397,7 @@ namespace HeartDev.MapWorkshop
         {
             string folder=Path.GetDirectoryName(prefabPath).Replace('\\','/');
             if(!AssetDatabase.IsValidFolder(folder)||!prefabPath.EndsWith(".prefab",StringComparison.OrdinalIgnoreCase))throw new ArgumentException("Elige un prefab dentro de Assets.");
+            PixelMapPatterns.RequireReady(map);
             using(var result=Build(map))
             {
                 var replacements=new Dictionary<Object,Object>();
@@ -428,16 +435,18 @@ namespace HeartDev.MapWorkshop
                 }
                 foreach(var filter in result.root.GetComponentsInChildren<MeshFilter>(true))
                 {
+                    if(AssetDatabase.Contains(filter.sharedMesh))continue;
                     string path=oldMeshes.TryGetValue(filter.name,out var old)&&old.StartsWith(folder+"/",StringComparison.Ordinal)?old:folder+"/Geometry_"+Safe(filter.name)+".asset";
                     filter.sharedMesh=(Mesh)Store(filter.sharedMesh,path);
                 }
+                foreach(var particles in result.root.GetComponentsInChildren<ParticleSystemRenderer>(true))if(particles.renderMode==ParticleSystemRenderMode.Mesh&&particles.mesh!=null)particles.mesh=(Mesh)Store(particles.mesh,folder+"/Geometry_"+Safe(particles.mesh.name)+".asset");
                 int serial=0;
                 foreach(var renderer in result.root.GetComponentsInChildren<Renderer>(true))
                 {
                     var assigned=renderer.sharedMaterials;
                     for(int slot=0;slot<assigned.Length;slot++)
                     {
-                        var material=assigned[slot];if(material==null)continue;
+                        var material=assigned[slot];if(material==null||AssetDatabase.Contains(material))continue;
                         if(replacements.TryGetValue(material,out var saved)){assigned[slot]=(Material)saved;continue;}
                         foreach(string property in material.GetTexturePropertyNames())
                         {
@@ -446,6 +455,7 @@ namespace HeartDev.MapWorkshop
                             else if(result.owned.Contains(texture)&&!AssetDatabase.Contains(texture))material.SetTexture(property,(Texture)Store(texture,oldTextures.TryGetValue(texture.name,out var texturePath)?texturePath:folder+"/Texture_"+Safe(texture.name)+".asset"));
                         }
                         string path=oldMaterials.TryGetValue(material.name,out var old)&&old.StartsWith(folder+"/",StringComparison.Ordinal)?old:folder+"/Surface_"+Safe(material.name)+"_"+(serial++)+".mat";
+                        if(material.HasProperty("_WaterClock"))material.SetFloat("_WaterClock",-1);
                         // Material names are unique within a build (atlas + purpose).
                         assigned[slot]=(Material)Store(material,path);
                     }

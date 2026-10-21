@@ -148,3 +148,14 @@ Las zonas de agua, partículas y construcciones se incluyen tanto en la vista 3D
 - Editar parámetros ambientales actualiza los emisores sin reconstruir la malla del terreno. Los sprites de origen no se modifican.
 - El área de emisión sigue siendo rectangular. Las zonas actuales usan una altura de referencia en su centro; no se añade colisión automática con el terreno.
 - Los once nuevos sprites incluidos en la biblioteca de ejemplo mantienen la licencia de evaluación: no pueden utilizarse en proyectos.
+
+## Crear props modulares · Tile Prop Studio
+
+Tile Prop Studio es una ventana independiente. Abre **Tools → HeartDev → Tile Prop Studio**, crea un documento y añade tu tileset. Mantén el tamaño del tile y los píxeles por unidad coherentes con el proyecto para conservar la escala de píxel. El paquete no necesita usar los sprites de demostración restringidos.
+
+- Coloca caras sobre los planos Suelo XZ, Frente XY o Lateral ZY; usa caja y extrusión para construir formas como cajas, rampas y puentes.
+- En **Object Mode**, transforma el prop completo. En **Edit Mode**, pulsa 1/2/3 para seleccionar vértices, bordes o caras. A selecciona todo; Alt+A limpia la selección; Ctrl+I la invierte; L selecciona geometría conectada.
+- G/R/S/E inician mover, rotar, escalar y extruir. Shift+D duplica. Mientras una operación está activa, X/Y/Z restringe el eje, escribe un valor y pulsa Enter. Esc cancela y restaura la geometría previa.
+- Los gizmos usan las mismas operaciones y el mismo grupo de deshacer. El HUD muestra el cambio en vivo. El snapping incluye píxel, tile, cuadrícula, vértice y ángulo; el editor avisa si la escala reduce la densidad de píxeles de la textura.
+- H oculta la geometría, Alt+H la muestra, X/Supr la elimina; F3 busca comandos. Ctrl+Z deshace y Ctrl+Shift+Z rehace. Los atajos se ignoran mientras se escribe en un campo de texto.
+- Guarda el documento de prop y pulsa **Exportar / actualizar**. Al volver a exportarlo, se actualizan la malla, el material y el prefab conectado sin perder sus referencias. En Map Workshop actualiza la biblioteca 3D para colocar el prop.

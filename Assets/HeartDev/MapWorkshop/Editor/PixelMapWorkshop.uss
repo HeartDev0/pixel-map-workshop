@@ -134,3 +134,10 @@
 .ambient-preset-card Label { font-size: 10px; white-space: normal; -unity-text-align: middle-center; }
 .settings-panel .unity-vector3-field { flex-direction: column; align-items: stretch; }
 .settings-panel .unity-vector3-field > .unity-base-field__label { max-width: none; }
+
+/* Layer visibility and edit locks use the same SVG palette as the tool rail. */
+.layer-row .layer-state-toggle { width: 28px; min-width: 28px; height: 26px; margin: 0 2px 0 0; padding: 0; align-items: center; justify-content: center; }
+.layer-state-toggle .unity-toggle__input { width: 26px; min-width: 26px; height: 26px; padding: 2px; margin: 0; align-items: center; justify-content: center; background-color: rgba(0,0,0,0); }
+.layer-state-icon { width: 22px; height: 22px; flex-shrink: 0; }
+.layer-state-toggle:hover { background-color: #4c474f; }
+.layer-state-toggle:focus { border-bottom-width: 1px; border-bottom-color: #edc08a; }

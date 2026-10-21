@@ -2,6 +2,8 @@
 // Licensed under the custom terms in LICENSE.txt; examples have a separate restricted license.
 using System;
 using System.Collections.Generic;
+using System.IO;
+using UnityEngine.Rendering;
 using UnityEditor;
 using UnityEngine;
 
@@ -14,29 +16,61 @@ namespace HeartDev.MapWorkshop
         private static readonly Dictionary<Texture2D,Source> sources=new Dictionary<Texture2D,Source>();
         private static readonly Dictionary<string,Tile> tiles=new Dictionary<string,Tile>();
         private static readonly Dictionary<string,bool[]> edges=new Dictionary<string,bool[]>();
-        internal static void Clear(){sources.Clear();tiles.Clear();edges.Clear();}
-        internal static bool Covers(PixelMapDocument.PaintLayer layer,int index)=>!edges.TryGetValue(layer.id,out var mask)||mask[index];
+        private static readonly HashSet<Texture2D> pending=new HashSet<Texture2D>();
+        private static readonly HashSet<Texture2D> failed=new HashSet<Texture2D>();
+        private static int sourceEpoch;
+        internal static int SourceRevision {get;private set;}
+        internal static void Clear(){sources.Clear();tiles.Clear();edges.Clear();pending.Clear();failed.Clear();sourceEpoch++;SourceRevision++;}
+        internal static bool Covers(PixelMapDocument.PaintLayer layer,int index)=>!edges.TryGetValue(layer.id,out var mask)||index>=0&&index<mask.Length&&mask[index];
+        internal static bool TryRead(Texture2D texture,out Color32[] colors,out int width,out int height)
+        {
+            colors=null;width=height=0;if(texture==null)return false;
+            if(sources.TryGetValue(texture,out var known)){colors=known.colors;width=known.width;height=known.height;return true;}
+            Source source=null;
+            if(texture.isReadable)source=new Source{colors=texture.GetPixels32(),width=texture.width,height=texture.height};
+            else
+            {
+                // Decode ordinary source images on the CPU: no GPU fence or ReadPixels in UI callbacks.
+                string path=AssetDatabase.GetAssetPath(texture),extension=Path.GetExtension(path).ToLowerInvariant();
+                if((extension==".png"||extension==".jpg"||extension==".jpeg")&&File.Exists(path))
+                {
+                    Texture2D copy=null;
+                    try{copy=new Texture2D(2,2,TextureFormat.RGBA32,false);if(ImageConversion.LoadImage(copy,File.ReadAllBytes(path),false))source=new Source{colors=copy.GetPixels32(),width=copy.width,height=copy.height};}
+                    finally{if(copy!=null)UnityEngine.Object.DestroyImmediate(copy);}
+                }
+            }
+            if(source!=null){sources[texture]=source;colors=source.colors;width=source.width;height=source.height;return true;}
+            if(pending.Contains(texture)||failed.Contains(texture))return false;
+            if(!SystemInfo.supportsAsyncGPUReadback){failed.Add(texture);Debug.LogWarning("No se pudo leer el patrón sin bloquear la GPU. Usa un patrón PNG o una textura legible: "+texture.name);return false;}
+            pending.Add(texture);int epoch=sourceEpoch,w=texture.width,h=texture.height;
+            AsyncGPUReadback.Request(texture,0,TextureFormat.RGBA32,request=>
+            {
+                if(epoch!=sourceEpoch)return;pending.Remove(texture);if(texture==null)return;
+                if(request.hasError)failed.Add(texture);
+                else sources[texture]=new Source{colors=request.GetData<Color32>().ToArray(),width=w,height=h};
+                SourceRevision++;
+            });
+            return false;
+        }
+        internal static void RequireReady(PixelMapDocument map)
+        {
+            foreach(var layer in map.layers)
+                if(layer.visible&&layer.pattern!=null&&layer.pattern.enabled&&layer.pattern.texture!=null&&layer.pixels!=null&&Array.Exists(layer.pixels,p=>p.a!=0)&&!TryRead(layer.pattern.texture,out _,out _,out _))
+                    throw new InvalidOperationException("El patrón "+layer.pattern.texture.name+" todavía no está disponible. Espera a su previsualización antes de exportar, o usa un PNG.");
+        }
         internal static void Prepare(PixelMapDocument map)
         {
             tiles.Clear();edges.Clear();foreach(var layer in map.layers)
             {
-                PrepareEdges(map,layer);
-                PrepareStyle(layer.id,layer.pattern);
+                if(!layer.visible||layer.pixels==null||layer.pixels.Length!=map.pixels.Length||!Array.Exists(layer.pixels,p=>p.a!=0))continue;
+                PrepareEdges(map,layer);PrepareStyle(layer.id,layer.pattern);
             }
         }
         private static void PrepareStyle(string id,PixelMapDocument.PatternStyle style,Color? background=null,Color? ink=null)
         {
-                if(style==null||!style.enabled||style.texture==null)return;
-                if(!sources.TryGetValue(style.texture,out var source))
-                {
-                    source=new Source{width=style.texture.width,height=style.texture.height};
-                    var rt=RenderTexture.GetTemporary(source.width,source.height,0,RenderTextureFormat.ARGB32);var old=RenderTexture.active;Texture2D copy=null;
-                    try{Graphics.Blit(style.texture,rt);RenderTexture.active=rt;copy=new Texture2D(source.width,source.height,TextureFormat.RGBA32,false);copy.ReadPixels(new Rect(0,0,source.width,source.height),0,0);copy.Apply();source.colors=copy.GetPixels32();}
-                    finally{RenderTexture.active=old;RenderTexture.ReleaseTemporary(rt);if(copy!=null)UnityEngine.Object.DestroyImmediate(copy);}
-                    if(sources.Count>32)sources.Clear();sources[style.texture]=source;
-                }
-                int size=Mathf.Clamp(style.size,2,128),height=Mathf.Clamp(Mathf.RoundToInt(size*source.height/(float)source.width),2,256);
-                tiles[id]=new Tile{colors=Sample(source.colors,source.width,source.height,size,height,style.twoColors,background??style.background,ink??style.ink,style.blend?style.blendAmount:0),width=size,height=height,offset=style.offset};
+            if(style==null||!style.enabled||style.texture==null||!TryRead(style.texture,out var colors,out int width,out int sourceHeight))return;
+            int size=Mathf.Clamp(style.size,2,128),height=Mathf.Clamp(Mathf.RoundToInt(size*sourceHeight/(float)width),2,256);
+            tiles[id]=new Tile{colors=Sample(colors,width,sourceHeight,size,height,style.twoColors,background??style.background,ink??style.ink,style.blend?style.blendAmount:0),width=size,height=height,offset=style.offset};
         }
         private static void PrepareEdges(PixelMapDocument map,PixelMapDocument.PaintLayer layer)
         {

@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased — 2026-10-21
+
+- Add the companion Tile Prop Studio for reusable, editable tile-built props, with versioned documents and prefab updates.
+- Add a centralized command registry, Blender-inspired modal transforms, component selection, connected selection, command search, and shared gizmo/keyboard operations.
+- Add live numeric Move/Rotate/Scale/Extrude/Duplicate previews with axis constraints, snapping, cancellation and grouped undo.
+- Connect exported tile props to Map Workshop's layers, selection, 3D preview and prefab baking.
+- Make layer visibility and locking clearer with SVG icons, guard layer editing from re-entrant refreshes, and smooth 3D camera travel.
+- Restore cloud layers to a seamless 360-degree wrap without a pole seam.
+- Add marine ambient swarms and supporting shaders while keeping the runtime controller separate from Editor code.
+
 ## Unreleased — 2026-10-20
 
 - Add underwater algae with a ten-segment plane and configurable traveling shader waves.
