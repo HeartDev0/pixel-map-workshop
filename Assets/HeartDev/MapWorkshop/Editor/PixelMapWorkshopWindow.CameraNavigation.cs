@@ -18,10 +18,15 @@ namespace HeartDev.MapWorkshop
             if(previewNavigating&&GUIUtility.hotControl==previewNavigationControl)GUIUtility.hotControl=0;
             previewNavigating=false;
         }
-        private void AddCameraSlider(VisualElement parent,string label,float min,float max,float value,Action<float> setter,bool travel=false)
+        private void AddCameraSlider(VisualElement parent,string label,float min,float max,float value,Action<float> setter)
         {
             var slider=new Slider(label,min,max){value=value};
-            slider.RegisterValueChangedCallback(e=>{setter(e.newValue);if(travel&&curvedPreview)InvalidatePreview();RequestCameraRepaint();});parent.Add(slider);
+            slider.RegisterValueChangedCallback(e=>
+            {
+                setter(e.newValue);
+                RequestCameraRepaint();
+            });
+            parent.Add(slider);
         }
         private bool HandleCameraNavigation(Rect rect,int control,Event e)
         {
@@ -52,8 +57,7 @@ namespace HeartDev.MapWorkshop
                 var up=Vector3.ProjectOnPlane(rotation*Vector3.up,Vector3.up).normalized;
                 var delta=-right*(e.delta.x*scale)+up*(e.delta.y*scale/Mathf.Max(.25f,Mathf.Sin(pitch*Mathf.Deg2Rad)));
                 previewPanX=Mathf.Clamp(previewPanX+delta.x,-document.width/(float)document.pixelsPerUnit,document.width/(float)document.pixelsPerUnit);
-                float before=viewPosition;viewPosition=Mathf.Clamp01(viewPosition+delta.z*document.pixelsPerUnit/document.height);
-                if(curvedPreview&&!Mathf.Approximately(before,viewPosition))InvalidatePreview();
+                viewPosition=Mathf.Clamp01(viewPosition+delta.z*document.pixelsPerUnit/document.height);
             }
             RequestCameraRepaint();e.Use();return true;
         }

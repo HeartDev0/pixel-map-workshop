@@ -37,11 +37,27 @@ namespace HeartDev.MapWorkshop
             float horizonStart=Mathf.Max(mapWidth*.9f,curvature>0?.35f/curvature:mapWidth*1.5f);
             material.SetVector("_CloudHorizon",new Vector4(0,focus,horizonStart,horizonStart+mapWidth*.7f));
             material.SetColor("_CloudColor",far?map.farCloudColor:map.cloudColor);material.SetFloat("_Opacity",far?map.farCloudOpacity:map.cloudOpacity);material.SetFloat("_Coverage",map.cloudCoverage);material.SetFloat("_Speed",speed);material.SetFloat("_PatternPixels",far?map.farCloudSizePixels:map.cloudSizePixels);material.SetFloat("_AlphaMask",map.cloudPattern==null||map.cloudAlphaMask?1:0);material.SetFloat("_Invert",map.cloudInvert?1:0);
-            const int columns=8,rows=16;var vertices=new Vector3[(columns+1)*(rows+1)];var uv=new Vector2[vertices.Length];var triangles=new int[columns*rows*6];
+            // Keep the original 8 x 16 patch and its UVs intact. Add a skirt in all four
+            // directions; every vertex still maps directly to the same document pixels.
+            int skirt=map.cloudWrapAround?8:0,columns=8+skirt*2,rows=16+skirt*2;
+            var vertices=new Vector3[(columns+1)*(rows+1)];var uv=new Vector2[vertices.Length];var triangles=new int[columns*rows*6];
+            float ppu=map.pixelsPerUnit;
+            float padding=(Mathf.Max(horizonStart+mapWidth*.7f,Mathf.Max(map.cloudSizePixels,map.farCloudSizePixels)/ppu)+mapWidth*.5f)*ppu;
+            float outerCurve=Mathf.Max(0,.35f/Mathf.Max(1,mapWidth)-Mathf.Max(0,curvature));
+            float Coordinate(int i,int originalSegments,float start,float end)
+            {
+                if(i<skirt){float t=1-i/(float)skirt;return start-padding*t*t;}
+                if(i>skirt+originalSegments){float t=(i-skirt-originalSegments)/(float)skirt;return end+padding*t*t;}
+                return Mathf.Lerp(start,end,(i-skirt)/(float)originalSegments);
+            }
             for(int y=0;y<=rows;y++)for(int x=0;x<=columns;x++)
             {
-                int i=y*(columns+1)+x;float px=Mathf.Lerp(-map.width*.3f,map.width*1.3f,x/(float)columns),py=Mathf.Lerp(-32,map.height+32,y/(float)rows),wx=(px-map.width*.5f)/map.pixelsPerUnit,wz=py/map.pixelsPerUnit;
-                vertices[i]=new Vector3(wx,height/map.pixelsPerUnit-curvature*((wz-focus)*(wz-focus)+.65f*wx*wx),wz);uv[i]=new Vector2(px,py)+(far?new Vector2(53,79):Vector2.zero);
+                int i=y*(columns+1)+x;float px=Coordinate(x,8,-map.width*.3f,map.width*1.3f),py=Coordinate(y,16,-32,map.height+32);
+                float wx=(px-map.width*.5f)/ppu,wz=py/ppu;
+                float outsideX=Mathf.Max(0,Mathf.Abs(wx)-mapWidth*.8f),outsideZ=Mathf.Max(0,Mathf.Max(-32-py,py-map.height-32))/ppu;
+                float skirtDrop=map.cloudWrapAround?outerCurve*(outsideX*outsideX+outsideZ*outsideZ):0;
+                vertices[i]=new Vector3(wx,height/ppu-curvature*((wz-focus)*(wz-focus)+.65f*wx*wx)-skirtDrop,wz);
+                uv[i]=new Vector2(px,py)+(far?new Vector2(53,79):Vector2.zero);
                 if(x<columns&&y<rows){int k=(y*columns+x)*6;triangles[k]=i;triangles[k+1]=i+columns+1;triangles[k+2]=i+1;triangles[k+3]=i+1;triangles[k+4]=i+columns+1;triangles[k+5]=i+columns+2;}
             }
             var mesh=new Mesh{name=name};mesh.vertices=vertices;mesh.uv=uv;mesh.triangles=triangles;mesh.RecalculateBounds();MeshObject(mesh.name,mesh,material,result.root.transform,result,true,false);

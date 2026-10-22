@@ -13,6 +13,28 @@ namespace HeartDev.MapWorkshop
     public static partial class PixelMapBaker
     {
         public const int ChunkPixels=64;
+        internal sealed class CurvatureGeometry
+        {
+            public Mesh mesh;
+            public Transform transform;
+            public readonly List<Vector3> vertices=new List<Vector3>();
+            public readonly List<Vector3> normals=new List<Vector3>();
+            public CurvatureGeometry(Mesh mesh,Transform transform){this.mesh=mesh;this.transform=transform;}
+        }
+        internal sealed class CurvatureRigidSpan
+        {
+            public int firstVertex,vertexCount;
+            public float anchorZ;
+            public CurvatureRigidSpan(int firstVertex,int vertexCount,float anchorZ){this.firstVertex=firstVertex;this.vertexCount=vertexCount;this.anchorZ=anchorZ;}
+        }
+        internal sealed class CurvatureRigidGeometry
+        {
+            public Mesh mesh;
+            public Transform transform;
+            public readonly List<CurvatureRigidSpan> spans=new List<CurvatureRigidSpan>();
+            public readonly List<Vector3> vertices=new List<Vector3>();
+            public CurvatureRigidGeometry(Mesh mesh,Transform transform,IEnumerable<CurvatureRigidSpan> spans){this.mesh=mesh;this.transform=transform;this.spans.AddRange(spans);}
+        }
         public sealed class Result : IDisposable
         {
             public GameObject root;
@@ -32,17 +54,96 @@ namespace HeartDev.MapWorkshop
             public readonly List<Material> animatedMaterials=new List<Material>();
             public int vertices,drawGroups;
             public readonly List<Object> owned=new List<Object>();
+            internal readonly List<CurvatureGeometry> curvatureGeometry=new List<CurvatureGeometry>();
+            internal readonly List<CurvatureRigidGeometry> curvatureRigidGeometry=new List<CurvatureRigidGeometry>();
+            internal readonly List<Transform> ambientParticleAnchors=new List<Transform>();
+            internal bool curvatureCacheReady;
             public void Dispose()
             {
                 if(root!=null)Object.DestroyImmediate(root);
                 foreach(var item in owned)if(item!=null&&!AssetDatabase.Contains(item))Object.DestroyImmediate(item);
-                owned.Clear();
+                owned.Clear();curvatureGeometry.Clear();curvatureRigidGeometry.Clear();ambientParticleAnchors.Clear();curvatureCacheReady=false;
+            }
+        }
+        private static void CacheCurvatureGeometry(Result result)
+        {
+            if(result==null||result.root==null)return;
+            result.curvatureGeometry.Clear();result.ambientParticleAnchors.Clear();
+            var rigidMeshes=new HashSet<Mesh>();foreach(var rigid in result.curvatureRigidGeometry)if(rigid.mesh!=null)rigidMeshes.Add(rigid.mesh);
+            var ownedMeshes=new HashSet<Mesh>();foreach(var item in result.owned)if(item is Mesh mesh&&mesh!=null)ownedMeshes.Add(mesh);
+            var seen=new HashSet<Mesh>();
+            foreach(var filter in result.root.GetComponentsInChildren<MeshFilter>(true))
+            {
+                var mesh=filter.sharedMesh;if(mesh==null||!ownedMeshes.Contains(mesh)||rigidMeshes.Contains(mesh)||!seen.Add(mesh))continue;
+                result.curvatureGeometry.Add(new CurvatureGeometry(mesh,filter.transform));
+            }
+            foreach(var anchor in result.ambientRoots)
+            {
+                if(anchor==null||anchor.GetComponentInChildren<PixelMarineSwarm>(true)!=null)continue;
+                if(anchor.GetComponentInChildren<ParticleSystem>(true)!=null)result.ambientParticleAnchors.Add(anchor.transform);
+            }
+            result.curvatureCacheReady=true;
+        }
+        private static Bounds TransformBounds(Bounds bounds,Matrix4x4 matrix)
+        {
+            var center=matrix.MultiplyPoint3x4(bounds.center);var ext=bounds.extents;
+            var size=new Vector3(
+                Mathf.Abs(matrix.m00)*ext.x+Mathf.Abs(matrix.m01)*ext.y+Mathf.Abs(matrix.m02)*ext.z,
+                Mathf.Abs(matrix.m10)*ext.x+Mathf.Abs(matrix.m11)*ext.y+Mathf.Abs(matrix.m12)*ext.z,
+                Mathf.Abs(matrix.m20)*ext.x+Mathf.Abs(matrix.m21)*ext.y+Mathf.Abs(matrix.m22)*ext.z);
+            return new Bounds(center,size*2);
+        }
+        public static void RecenterCurvature(Result result,float curvature,float previousFocus,float nextFocus)
+        {
+            if(result==null||result.root==null||Mathf.Approximately(curvature,0)||Mathf.Approximately(previousFocus,nextFocus))return;
+            if(!result.curvatureCacheReady)CacheCurvatureGeometry(result);
+            float slope=2*curvature*(nextFocus-previousFocus);
+            float offset=-curvature*(nextFocus*nextFocus-previousFocus*previousFocus);
+            var worldShear=Matrix4x4.identity;worldShear.m12=slope;worldShear.m13=offset;
+            foreach(var cached in result.curvatureGeometry)
+            {
+                if(cached.mesh==null||cached.transform==null)continue;
+                var localShear=cached.transform.worldToLocalMatrix*worldShear*cached.transform.localToWorldMatrix;
+                var normalMatrix=localShear.inverse.transpose;var oldBounds=cached.mesh.bounds;
+                cached.mesh.GetVertices(cached.vertices);
+                for(int i=0;i<cached.vertices.Count;i++)cached.vertices[i]=localShear.MultiplyPoint3x4(cached.vertices[i]);
+                cached.mesh.SetVertices(cached.vertices);
+                cached.mesh.GetNormals(cached.normals);
+                for(int i=0;i<cached.normals.Count;i++)cached.normals[i]=normalMatrix.MultiplyVector(cached.normals[i]).normalized;
+                if(cached.normals.Count>0)cached.mesh.SetNormals(cached.normals);
+                cached.mesh.bounds=TransformBounds(oldBounds,localShear);
+            }
+            foreach(var cached in result.curvatureRigidGeometry)
+            {
+                if(cached.mesh==null||cached.transform==null||cached.spans.Count==0)continue;
+                cached.mesh.GetVertices(cached.vertices);
+                foreach(var span in cached.spans)
+                {
+                    var localDelta=cached.transform.worldToLocalMatrix.MultiplyVector(Vector3.up*(slope*span.anchorZ+offset));
+                    int end=Mathf.Min(cached.vertices.Count,span.firstVertex+span.vertexCount);
+                    for(int i=Mathf.Max(0,span.firstVertex);i<end;i++)cached.vertices[i]+=localDelta;
+                }
+                cached.mesh.SetVertices(cached.vertices);cached.mesh.RecalculateBounds();
+            }
+            foreach(var material in result.owned)
+            {
+                if(!(material is Material cloud)||cloud==null||!cloud.HasProperty("_CloudHorizon"))continue;
+                var horizon=cloud.GetVector("_CloudHorizon");horizon.y=nextFocus;cloud.SetVector("_CloudHorizon",horizon);
+            }
+            foreach(var swarm in result.marineSystems)if(swarm!=null)swarm.ApplyVerticalShear(slope,offset);
+            foreach(var anchor in result.ambientParticleAnchors)
+            {
+                if(anchor==null)continue;var position=anchor.position;position.y+=slope*position.z+offset;anchor.position=position;
             }
         }
         public static Texture2D PaintTexture(PixelMapDocument map,bool heights=false)
         {
+            return PaintTexture(map,heights,null);
+        }
+        public static Texture2D PaintTexture(PixelMapDocument map,bool heights,Action<Color32[]> pixelOverlay)
+        {
             PixelMapPatterns.Prepare(map);
-            var pixels=PixelMapSurfaces.OutlinedPixels(map);
+            var pixels=PixelMapSurfaces.OutlinedPixels(map,out var surfaceTypes);
             for(int y=0;y<map.height;y++)for(int x=0;x<map.width;x++)
             {
                 int i=y*map.width+x;
@@ -53,9 +154,10 @@ namespace HeartDev.MapWorkshop
                 }
                 else
                 {
-                    if(map.Surface(i)==2)pixels[i]=map.WaterZoneAt(x,y)?.shore??PixelMapPatterns.WaterColorAt(map,i);
+                    if(surfaceTypes[i]==2)pixels[i]=map.WaterZoneAt(x,y)?.shore??PixelMapPatterns.WaterColorAt(map,i);
                 }
             }
+            pixelOverlay?.Invoke(pixels);
             var texture=new Texture2D(map.width,map.height,TextureFormat.RGBA32,false){name="GroundPixels",filterMode=FilterMode.Point,wrapMode=TextureWrapMode.Clamp};
             texture.SetPixels32(pixels);texture.Apply(false,false);return texture;
         }
@@ -66,18 +168,19 @@ namespace HeartDev.MapWorkshop
             if(shader==null)throw new InvalidOperationException("Falta el shader PixelMapUnlit del taller.");
             var material=new Material(shader){name=texture.name+"_Pixel",mainTexture=texture};material.SetTexture("_BaseMap",texture);material.SetTexture("_SurfaceMap",Texture2D.blackTexture);material.EnableKeyword("_ALPHATEST_ON");cache.Add(texture,material);result.owned.Add(material);return material;
         }
-        private static void MeshObject(string name,Mesh mesh,Material material,Transform parent,Result result,bool grass=false,bool castShadows=true)
+        private static Transform MeshObject(string name,Mesh mesh,Material material,Transform parent,Result result,bool grass=false,bool castShadows=true)
         {
             var go=new GameObject(name,typeof(MeshFilter),typeof(MeshRenderer));go.transform.SetParent(parent,false);go.isStatic=true;
             go.GetComponent<MeshFilter>().sharedMesh=mesh;
             var renderer=go.GetComponent<MeshRenderer>();renderer.sharedMaterial=material;
             renderer.shadowCastingMode=grass||!castShadows?ShadowCastingMode.Off:ShadowCastingMode.TwoSided;renderer.receiveShadows=!grass;
             mesh.RecalculateNormals();
-            result.owned.Add(mesh);result.vertices+=mesh.vertexCount;result.drawGroups++;
+            result.owned.Add(mesh);result.vertices+=mesh.vertexCount;result.drawGroups++;return go.transform;
         }
-        public static Result Build(PixelMapDocument map,float curvature=0,float focus=0)
+        public static Result Build(PixelMapDocument map,float curvature=0,float focus=0,int minimumMeshStep=1)
         {
             if(map==null||!map.IsValid)throw new InvalidOperationException("Selecciona un mapa válido.");
+            if(!map.IsSupportedFormat)throw new InvalidOperationException("Este mapa utiliza una versión de formato más reciente del taller.");
             var result=new Result();
             try
             {
@@ -138,8 +241,17 @@ namespace HeartDev.MapWorkshop
                 }
                 // Relief edges are pixel aligned, so a coarser ground grid can leave
                 // uncovered slivers where a road texel meets a terrain triangle.
-                int step=hasReliefPath?1:Mathf.Clamp(map.meshStep,1,16);
+                int step=hasReliefPath?1:Mathf.Clamp(Mathf.Max(map.meshStep,minimumMeshStep),1,16);
                 var pathHeightWeights=hasReliefPath?BuildPathInteriorWeights(map):null;
+                int chunkCount=Mathf.CeilToInt(map.height/(float)ChunkPixels);
+                var decorationsByChunk=new List<PixelMapDocument.Decoration>[chunkCount];
+                foreach(var prop in map.decorations)
+                {
+                    if(prop.shape==PixelMapDocument.PropShape.Caja||prop.sprite==null||prop.pixel.y<0||prop.pixel.y>=map.height||!map.DecorationVisible(prop))continue;
+                    int chunk=prop.pixel.y/ChunkPixels;
+                    if(decorationsByChunk[chunk]==null)decorationsByChunk[chunk]=new List<PixelMapDocument.Decoration>();
+                    decorationsByChunk[chunk].Add(prop);
+                }
                 for(int y0=0;y0<map.height;y0+=ChunkPixels)
                 {
                     int yEnd=Mathf.Min(map.height,y0+ChunkPixels),cols=Mathf.CeilToInt((float)map.width/step),rows=Mathf.CeilToInt((float)(yEnd-y0)/step),stride=cols+1;
@@ -170,16 +282,16 @@ namespace HeartDev.MapWorkshop
                     if(hasReliefPath)BuildPathRelief(map,y0,yEnd,curvature,focus,pathHeightScale,pathHeightWeights,pathMaterial,pathBank,result);
                     // One combined mesh per atlas and strip. Grass never creates a GameObject per blade.
                     var groups=new Dictionary<(Texture,bool,bool),List<PixelMapDocument.Decoration>>();
-                    foreach(var prop in map.decorations)
+                    var chunkDecorations=decorationsByChunk[y0/ChunkPixels];
+                    if(chunkDecorations!=null)foreach(var prop in chunkDecorations)
                     {
-                        if(prop.shape==PixelMapDocument.PropShape.Caja||prop.sprite==null||!map.DecorationVisible(prop)||prop.pixel.y<y0||prop.pixel.y>=yEnd)continue;
                         var key=((Texture)prop.sprite.texture,prop.grass,map.IsAlgae(prop));
                         if(!groups.TryGetValue(key,out var group)){group=new List<PixelMapDocument.Decoration>();groups.Add(key,group);}group.Add(prop);
                     }
                     foreach(var pair in groups)
                     {
                         var v=new List<Vector3>();var u=new List<Vector2>();var motion=new List<Vector2>();var t=new List<int>();
-                        var gradientRows=new List<Vector2>();foreach(var prop in pair.Value){int start=v.Count;AddSprite(map,prop,v,u,motion,t,curvature,focus);byte row=prop.grass?gradients.IndexAt(map.Index(prop.pixel.x,prop.pixel.y)):(byte)0;for(int i=start;i<v.Count;i++)gradientRows.Add(new Vector2(row,0));}
+                        var gradientRows=new List<Vector2>();var rigidSpans=new List<CurvatureRigidSpan>();foreach(var prop in pair.Value){int start=v.Count;AddSprite(map,prop,v,u,motion,t,curvature,focus);rigidSpans.Add(new CurvatureRigidSpan(start,v.Count-start,(prop.pixel.y+.5f)/map.pixelsPerUnit));byte row=prop.grass?gradients.IndexAt(map.Index(prop.pixel.x,prop.pixel.y)):(byte)0;for(int i=start;i<v.Count;i++)gradientRows.Add(new Vector2(row,0));}
                         var decorationMesh=new Mesh{name="Figures_"+y0+"_"+pair.Key.Item1.name+(pair.Key.Item2?"_Grass":""),indexFormat=v.Count>65535?IndexFormat.UInt32:IndexFormat.UInt16};
                         decorationMesh.SetVertices(v);decorationMesh.SetUVs(0,u);decorationMesh.SetUVs(1,motion);decorationMesh.SetUVs(2,gradientRows);decorationMesh.SetTriangles(t,0);decorationMesh.RecalculateBounds();
                         if(pair.Key.Item2||pair.Key.Item3){var swayPixels=pair.Key.Item2?map.grassSwayPixels:map.algaeSwayPixels;var bounds=decorationMesh.bounds;bounds.Expand(new Vector3(2*(swayPixels+1)/map.pixelsPerUnit,0,0));decorationMesh.bounds=bounds;}
@@ -195,7 +307,8 @@ namespace HeartDev.MapWorkshop
                             propMaterial.name=pair.Key.Item1.name+"_Algae";propMaterial.SetFloat("_ReceiveShadows",1);propMaterial.SetFloat("_AlgaeSway",map.algaeSwayPixels);propMaterial.SetFloat("_AlgaeSpeed",map.algaeSwaySpeed);propMaterial.SetFloat("_AlgaeWaveCycles",map.algaeWaveCycles);propMaterial.SetFloat("_PixelsPerUnit",map.pixelsPerUnit);
                             if(map.algaeSwayPixels>0&&!result.animatedMaterials.Contains(propMaterial))result.animatedMaterials.Add(propMaterial);
                         }
-                        MeshObject(decorationMesh.name,decorationMesh,propMaterial,result.root.transform,result,pair.Key.Item2,!pair.Key.Item3);
+                        var decorationTransform=MeshObject(decorationMesh.name,decorationMesh,propMaterial,result.root.transform,result,pair.Key.Item2,!pair.Key.Item3);
+                        result.curvatureRigidGeometry.Add(new CurvatureRigidGeometry(decorationMesh,decorationTransform,rigidSpans));
                     }
                 }
                 BuildBoxProps(map,curvature,focus,result);BuildTileProps(map,curvature,focus,result);BuildPlatforms(map,curvature,focus,result);BuildWaterZones(map,curvature,focus,water,result);BuildWaterfalls(map,curvature,focus,result);BuildAmbientZones(map,curvature,focus,result);
@@ -332,9 +445,10 @@ namespace HeartDev.MapWorkshop
             float x=prop.pixel.x+.5f,z=prop.pixel.y+.5f;
             float wx=(x-map.width*.5f)/map.pixelsPerUnit,wz=z/map.pixelsPerUnit;
             var foot=new Vector3(wx,map.SurfaceHeight(x,z)+prop.heightOffsetPixels/(float)map.pixelsPerUnit+(prop.grass?.125f/map.pixelsPerUnit:.001f)-curvature*((wz-focus)*(wz-focus)+.65f*wx*wx),wz);
-            var rotation=Quaternion.Euler(Mathf.Atan(2*curvature*(wz-focus))*Mathf.Rad2Deg,0,-Mathf.Atan(1.3f*curvature*wx)*Mathf.Rad2Deg);
             float propPitch=map.PropPitch(prop);
-            rotation*=Quaternion.Euler(0,prop.yaw,0)*Quaternion.Euler(propPitch,0,0);
+            // Camera traversal changes the curvature focus of the preview. Keep props
+            // upright in world space; only their base follows the curved terrain.
+            var rotation=Quaternion.Euler(0,prop.yaw,0)*Quaternion.Euler(propPitch,0,0);
             // One source texel always occupies one document pixel, regardless of sprite import PPU.
             float scale=sprite.pixelsPerUnit/map.pixelsPerUnit;
             int copies=map.IsAlgae(prop)?1:prop.grass||prop.shape==PixelMapDocument.PropShape.Cruzado?2:1;

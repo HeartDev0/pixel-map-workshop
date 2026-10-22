@@ -5,6 +5,7 @@ using System.IO;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.Rendering.Universal;
+using HeartDev.MapWorkshop;
 namespace HeartDev.TilePropStudio
 {
     public sealed partial class TilePropStudioWindow
@@ -18,7 +19,7 @@ namespace HeartDev.TilePropStudio
         private Vector2Int hoverCell;
         private bool hover;
         private double nextRepaint;
-        private void Tick(){if(EditorApplication.isCompiling||EditorApplication.isUpdating||viewport==null)return;if((viewDragging||dirtyPreview&&!editingStroke)&&EditorApplication.timeSinceStartup>=nextRepaint){nextRepaint=EditorApplication.timeSinceStartup+1.0/30;viewport.MarkDirtyRepaint();Repaint();}}
+        private void Tick(){if(EditorApplication.isCompiling||EditorApplication.isUpdating||viewport==null)return;if((viewDragging||dirtyPreview&&!editingStroke)&&EditorApplication.timeSinceStartup>=nextRepaint){nextRepaint=EditorApplication.timeSinceStartup+PixelMapWorkshopPerformance.PreviewRepaintInterval(viewDragging);viewport.MarkDirtyRepaint();Repaint();}}
         private void ReleaseViewInput(){bool finishedStroke=editingStroke;if(atlasPixelPainting)EndAtlasPixelStroke();if(paletteDragging&&GUIUtility.hotControl==paletteControl)GUIUtility.hotControl=0;if(viewDragging&&GUIUtility.hotControl==viewControl)GUIUtility.hotControl=0;if(gizmoDragging)EndGizmoDrag();viewDragging=editingStroke=selecting=selectionBox=false;paletteDragging=false;if(finishedStroke){RefreshLabels();viewport?.MarkDirtyRepaint();Repaint();}}
         private void EnsurePreview()
         {
@@ -30,7 +31,7 @@ namespace HeartDev.TilePropStudio
         }
         private void RebuildPreview()
         {
-            if(!dirtyPreview)return;previewModel?.Dispose();previewModel=null;if(document!=null){previewModel=TilePropBuilder.Build(document);preview.AddSingleGO(previewModel.root);}dirtyPreview=false;
+            if(!dirtyPreview)return;previewModel?.Dispose();previewModel=null;if(document!=null){previewModel=TilePropBuilder.Build(document);PixelMapWorkshopPerformance.Configure(previewModel.root);preview.AddSingleGO(previewModel.root);}dirtyPreview=false;
         }
         private bool UpdatePreviewGeometry(IEnumerable<string> faceIds)
         {
@@ -61,7 +62,7 @@ namespace HeartDev.TilePropStudio
             if(document==null){EditorGUI.DrawRect(rect,new Color(.14f,.17f,.20f));GUI.Label(new Rect(rect.center.x-130,rect.center.y-15,280,45),"Nuevo… para crear tu primer prop con tiles.");return;}
             try
             {
-                EnsurePreview();HandleViewInput(rect);
+                EnsurePreview();PixelMapWorkshopPerformance.Configure(preview);HandleViewInput(rect);
                 if(Event.current.type!=EventType.Repaint)return;RebuildPreview();if(!cameraReady)FrameModel();var rotation=Quaternion.Euler(cameraPitch,cameraYaw,0);preview.camera.orthographic=orthographicView;preview.camera.orthographicSize=Mathf.Max(.01f,cameraDistance*Mathf.Tan(preview.camera.fieldOfView*.5f*Mathf.Deg2Rad));preview.camera.transform.SetPositionAndRotation(cameraTarget-rotation*Vector3.forward*cameraDistance,rotation);
                 preview.BeginPreview(rect,GUIStyle.none);Texture image=null;try{preview.Render(true);}finally{image=preview.EndPreview();}if(image!=null){image.filterMode=FilterMode.Point;GUI.DrawTexture(rect,image,ScaleMode.StretchToFill,false);}DrawGuides(rect);DrawModalOperationHud(rect);
             }

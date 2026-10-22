@@ -3,7 +3,8 @@
   "rootNamespace": "HeartDev.TilePropStudio",
   "references": [
     "Unity.RenderPipelines.Universal.Runtime",
-    "HeartDev.TilePropStudio.Runtime"
+    "HeartDev.TilePropStudio.Runtime",
+    "HeartDev.MapWorkshop.Editor"
   ],
   "includePlatforms": [
     "Editor"

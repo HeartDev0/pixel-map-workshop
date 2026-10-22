@@ -15,12 +15,14 @@ namespace HeartDev.MapWorkshop
         private sealed class Tile{public Color32[] colors;public int width,height;public Vector2Int offset;}
         private static readonly Dictionary<Texture2D,Source> sources=new Dictionary<Texture2D,Source>();
         private static readonly Dictionary<string,Tile> tiles=new Dictionary<string,Tile>();
+        private static readonly Dictionary<PixelMapDocument.PaintMaterial,Tile> materialTiles=new Dictionary<PixelMapDocument.PaintMaterial,Tile>();
+        private static readonly List<KeyValuePair<PixelMapDocument.PatternStyle,Tile>> preparedStyles=new List<KeyValuePair<PixelMapDocument.PatternStyle,Tile>>();
         private static readonly Dictionary<string,bool[]> edges=new Dictionary<string,bool[]>();
         private static readonly HashSet<Texture2D> pending=new HashSet<Texture2D>();
         private static readonly HashSet<Texture2D> failed=new HashSet<Texture2D>();
         private static int sourceEpoch;
         internal static int SourceRevision {get;private set;}
-        internal static void Clear(){sources.Clear();tiles.Clear();edges.Clear();pending.Clear();failed.Clear();sourceEpoch++;SourceRevision++;}
+        internal static void Clear(){sources.Clear();tiles.Clear();materialTiles.Clear();preparedStyles.Clear();edges.Clear();pending.Clear();failed.Clear();sourceEpoch++;SourceRevision++;}
         internal static bool Covers(PixelMapDocument.PaintLayer layer,int index)=>!edges.TryGetValue(layer.id,out var mask)||index>=0&&index<mask.Length&&mask[index];
         internal static bool TryRead(Texture2D texture,out Color32[] colors,out int width,out int height)
         {
@@ -57,20 +59,65 @@ namespace HeartDev.MapWorkshop
             foreach(var layer in map.layers)
                 if(layer.visible&&layer.pattern!=null&&layer.pattern.enabled&&layer.pattern.texture!=null&&layer.pixels!=null&&Array.Exists(layer.pixels,p=>p.a!=0)&&!TryRead(layer.pattern.texture,out _,out _,out _))
                     throw new InvalidOperationException("El patrón "+layer.pattern.texture.name+" todavía no está disponible. Espera a su previsualización antes de exportar, o usa un PNG.");
+            foreach(var material in UsedMaterials(map))
+                if(material.appearance==PixelMapDocument.MaterialAppearance.Material&&material.pattern!=null&&material.pattern.enabled&&material.pattern.texture!=null&&!TryRead(material.pattern.texture,out _,out _,out _))
+                    throw new InvalidOperationException("El patrón del material "+material.name+" todavía no está disponible.");
         }
         internal static void Prepare(PixelMapDocument map)
         {
-            tiles.Clear();edges.Clear();foreach(var layer in map.layers)
+            tiles.Clear();materialTiles.Clear();preparedStyles.Clear();edges.Clear();foreach(var layer in map.layers)
             {
                 if(!layer.visible||layer.pixels==null||layer.pixels.Length!=map.pixels.Length||!Array.Exists(layer.pixels,p=>p.a!=0))continue;
-                PrepareEdges(map,layer);PrepareStyle(layer.id,layer.pattern);
+                PrepareEdges(map,layer);
+                if(NeedsLayerStyle(map,layer))PrepareStyle(layer.id,layer.pattern);
             }
+            foreach(var material in UsedMaterials(map))
+                if(material.appearance==PixelMapDocument.MaterialAppearance.Material)
+                {
+                    string key=MaterialKey(material);PrepareStyle(key,material.pattern);
+                    if(tiles.TryGetValue(key,out var tile))materialTiles[material]=tile;
+                }
+        }
+        private static bool NeedsLayerStyle(PixelMapDocument map,PixelMapDocument.PaintLayer layer)
+        {
+            if(layer.materialStyleOverride||layer.materialIds==null||layer.materialIds.Length!=map.pixels.Length)return true;
+            int previous=-1;
+            for(int i=0;i<layer.pixels.Length;i++)
+            {
+                if(layer.pixels[i].a==0)continue;
+                int id=layer.materialIds[i];if(id==previous)continue;previous=id;
+                if(!PixelMapMaterialCatalog.IsIndependent(PixelMapMaterialCatalog.Get(map,id)))return true;
+            }
+            return false;
+        }
+        private static IEnumerable<PixelMapDocument.PaintMaterial> UsedMaterials(PixelMapDocument map)
+        {
+            var seen=new HashSet<int>();
+            foreach(var layer in map.layers)
+            {
+                if(layer==null||!layer.visible||layer.pixels==null||layer.pixels.Length!=map.pixels.Length||layer.materialIds==null||layer.materialIds.Length!=map.pixels.Length)continue;
+                int previous=-1;
+                for(int i=0;i<layer.materialIds.Length;i++)
+                {
+                    int id=layer.materialIds[i];if(layer.pixels[i].a==0||id<=0||id==previous)continue;previous=id;if(!seen.Add(id))continue;
+                    var material=PixelMapMaterialCatalog.Get(map,id);if(PixelMapMaterialCatalog.IsIndependent(material))yield return material;
+                }
+            }
+        }
+        private static string MaterialKey(PixelMapDocument.PaintMaterial material)=>"material:"+material.id;
+        internal static Color32 MaterialColorAt(PixelMapDocument.PaintMaterial material,int index,int width)
+        {
+            return materialTiles.TryGetValue(material,out var tile)?TileColor(tile,index,width):(Color32)(material.pattern?.background??Color.white);
         }
         private static void PrepareStyle(string id,PixelMapDocument.PatternStyle style,Color? background=null,Color? ink=null)
         {
             if(style==null||!style.enabled||style.texture==null||!TryRead(style.texture,out var colors,out int width,out int sourceHeight))return;
+            if(!background.HasValue&&!ink.HasValue)
+                foreach(var prepared in preparedStyles)
+                    if(PixelMapMaterialCatalog.PatternEquals(style,prepared.Key)){tiles[id]=prepared.Value;return;}
             int size=Mathf.Clamp(style.size,2,128),height=Mathf.Clamp(Mathf.RoundToInt(size*sourceHeight/(float)width),2,256);
-            tiles[id]=new Tile{colors=Sample(colors,width,sourceHeight,size,height,style.twoColors,background??style.background,ink??style.ink,style.blend?style.blendAmount:0),width=size,height=height,offset=style.offset};
+            var tile=new Tile{colors=Sample(colors,width,sourceHeight,size,height,style.twoColors,background??style.background,ink??style.ink,style.blend?style.blendAmount:0),width=size,height=height,offset=style.offset};tiles[id]=tile;
+            if(!background.HasValue&&!ink.HasValue)preparedStyles.Add(new KeyValuePair<PixelMapDocument.PatternStyle,Tile>(style,tile));
         }
         private static void PrepareEdges(PixelMapDocument map,PixelMapDocument.PaintLayer layer)
         {

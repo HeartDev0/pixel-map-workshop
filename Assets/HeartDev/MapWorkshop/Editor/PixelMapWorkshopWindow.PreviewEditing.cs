@@ -24,7 +24,7 @@ namespace HeartDev.MapWorkshop
         private int heightDragStart;
         private readonly Dictionary<int,int> groupHeightStarts=new Dictionary<int,int>();
         private Vector2Int propDragPixel;
-        private sealed class PickMesh{public Bounds bounds;public Vector3[] vertices;public int[] indices;}
+        private sealed class PickMesh{public Mesh mesh;public readonly List<Vector3> vertices=new List<Vector3>();public int[] indices;}
         private readonly List<PickMesh> pickMeshes=new List<PickMesh>();
         private void BuildPreviewInteractionControls(VisualElement parent)
         {
@@ -59,7 +59,7 @@ namespace HeartDev.MapWorkshop
             pickMeshes.Clear();if(model==null)return;
             foreach(var filter in model.root.GetComponentsInChildren<MeshFilter>())if(filter.name.StartsWith("Ground_"))
             {
-                var mesh=filter.sharedMesh;pickMeshes.Add(new PickMesh{bounds=mesh.bounds,vertices=mesh.vertices,indices=mesh.triangles});
+                var mesh=filter.sharedMesh;pickMeshes.Add(new PickMesh{mesh=mesh,indices=mesh.triangles});mesh.GetVertices(pickMeshes[pickMeshes.Count-1].vertices);
             }
         }
         private bool HitTerrain(Rect rect,Vector2 mouse,out Vector2Int pixel)
@@ -68,7 +68,8 @@ namespace HeartDev.MapWorkshop
             var ray=preview.camera.ViewportPointToRay(new Vector3((mouse.x-rect.x)/rect.width,1-(mouse.y-rect.y)/rect.height,0));float nearest=float.PositiveInfinity;
             foreach(var part in pickMeshes)
             {
-                if(!part.bounds.IntersectRay(ray,out float boundDistance)||boundDistance>nearest)continue;
+                if(part.mesh==null)continue;part.mesh.GetVertices(part.vertices);
+                if(!part.mesh.bounds.IntersectRay(ray,out float boundDistance)||boundDistance>nearest)continue;
                 for(int i=0;i<part.indices.Length;i+=3)
                 {
                     var a=part.vertices[part.indices[i]];var ab=part.vertices[part.indices[i+1]]-a;var ac=part.vertices[part.indices[i+2]]-a;var p=Vector3.Cross(ray.direction,ac);float det=Vector3.Dot(ab,p);if(Mathf.Abs(det)<.000001f)continue;

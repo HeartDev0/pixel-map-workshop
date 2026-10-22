@@ -24,7 +24,7 @@ namespace HeartDev.MapWorkshop
             void Navigate(Vector2 p)
             {
                 if(document==null||paintScroll==null)return;float u=Mathf.Clamp01(p.x/Mathf.Max(1,minimap.resolvedStyle.width)),v=Mathf.Clamp01(p.y/Mathf.Max(1,minimap.resolvedStyle.height));
-                var viewport=paintScroll.contentViewport.layout.size;paintScroll.scrollOffset=new Vector2(u*document.width*CanvasZoom-viewport.x*.5f,v*document.height*CanvasZoom-viewport.y*.5f);viewPosition=1-v;InvalidatePreview();UpdateNavigator();
+                var viewport=paintScroll.contentViewport.layout.size;paintScroll.scrollOffset=new Vector2(u*document.width*CanvasZoom-viewport.x*.5f,v*document.height*CanvasZoom-viewport.y*.5f);viewPosition=1-v;RequestCameraRepaint();UpdateNavigator();
             }
             minimap.RegisterCallback<PointerDownEvent>(e=>{if(e.button!=0)return;minimap.CapturePointer(e.pointerId);Navigate(e.localPosition);e.StopPropagation();});
             minimap.RegisterCallback<PointerMoveEvent>(e=>{if(minimap.HasPointerCapture(e.pointerId))Navigate(e.localPosition);});minimap.RegisterCallback<PointerUpEvent>(e=>minimap.ReleasePointer(e.pointerId));

@@ -1,0 +1,7 @@
+{
+  "name": "HeartDev.MapWorkshop.Editor.Tests",
+  "references": ["HeartDev.MapWorkshop.Editor"],
+  "includePlatforms": ["Editor"],
+  "optionalUnityReferences": ["TestAssemblies"],
+  "autoReferenced": false
+}

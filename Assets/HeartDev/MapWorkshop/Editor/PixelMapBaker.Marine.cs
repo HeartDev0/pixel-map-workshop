@@ -127,7 +127,13 @@ namespace HeartDev.MapWorkshop
                 if(copies>=96)break;string name=source.name;
                 if(name.EndsWith("_Grass")||name.Contains("Algae"))continue;
                 if(!(name.StartsWith("Ground")||name.StartsWith("RiverBanks")||name.StartsWith("PathRelief")||name.StartsWith("PathCutSides")||name.StartsWith("BoxProps")||name.StartsWith("Platform")||name.StartsWith("Figures"))||source.sharedMesh==null)continue;
-                var sourceRenderer=source.GetComponent<Renderer>();if(sourceRenderer==null)continue;var bounds=sourceRenderer.bounds;
+                var sourceRenderer=source.GetComponent<Renderer>();if(sourceRenderer==null)continue;
+                // The generated mesh keeps the source's Spanish name (Alga01, etc.).
+                // Exclude animated stalks by their material, so a rigid light copy
+                // cannot remain behind while the real algae bend in the current.
+                var sourceMaterial=sourceRenderer.sharedMaterial;
+                if(sourceMaterial!=null&&sourceMaterial.HasProperty("_AlgaeSway")&&sourceMaterial.GetFloat("_AlgaeSway")>0)continue;
+                var bounds=sourceRenderer.bounds;
                 if(bounds.max.x<(zone.area.xMin-map.width*.5f)/ppu||bounds.min.x>(zone.area.xMax-map.width*.5f)/ppu||bounds.max.z<zone.area.yMin/ppu||bounds.min.z>zone.area.yMax/ppu)continue;
                 var go=new GameObject(root.name+"_Surface_"+copies++,typeof(MeshFilter),typeof(MeshRenderer));go.transform.SetParent(root.transform,false);go.transform.SetPositionAndRotation(source.transform.position,source.transform.rotation);go.transform.localScale=source.transform.lossyScale;go.GetComponent<MeshFilter>().sharedMesh=source.sharedMesh;
                 var target=go.GetComponent<MeshRenderer>();target.sharedMaterial=material;target.shadowCastingMode=ShadowCastingMode.Off;target.receiveShadows=false;

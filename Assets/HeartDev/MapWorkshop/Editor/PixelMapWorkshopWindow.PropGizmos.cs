@@ -22,8 +22,7 @@ namespace HeartDev.MapWorkshop
         private static float SignedDegrees(float angle)=>Mathf.Repeat(angle+180,360)-180;
         private Quaternion PropBasis(PixelMapDocument.Decoration p)
         {
-            float curve=curvedPreview?previewCurvature:0,wx=(p.pixel.x+.5f-document.width*.5f)/document.pixelsPerUnit,wz=(p.pixel.y+.5f)/document.pixelsPerUnit,focus=viewPosition*document.height/document.pixelsPerUnit;
-            return Quaternion.Euler(Mathf.Atan(2*curve*(wz-focus))*Mathf.Rad2Deg,0,-Mathf.Atan(1.3f*curve*wx)*Mathf.Rad2Deg)*Quaternion.Euler(0,p.yaw,0);
+            return Quaternion.Euler(0,p.yaw,0);
         }
         private List<Vector3> PropBoundsPoints(PixelMapDocument.Decoration p)
         {

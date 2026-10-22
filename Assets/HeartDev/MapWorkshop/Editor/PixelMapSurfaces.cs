@@ -8,21 +8,25 @@ namespace HeartDev.MapWorkshop
     {
         public static Color32[] OutlinedPixels(PixelMapDocument map)
         {
-            var result=new Color32[map.pixels.Length];for(int i=0;i<result.Length;i++)result[i]=map.PixelColor(i);
-            float Hash(int x,int y){unchecked{uint n=(uint)(x*374761393+y*668265263+map.seed);n=(n^(n>>13))*1274126177;return(n&65535)/65535f;}}
-            if(map.terrainVariation)for(int y=0;y<map.height;y++)for(int x=0;x<map.width;x++)if(map.Surface(y*map.width+x)==0&&Hash(x/Mathf.Max(1,map.variationScale),y/Mathf.Max(1,map.variationScale))<map.variationDensity)result[y*map.width+x]=map.variationColor;
+            return OutlinedPixels(map,out _);
+        }
+        public static Color32[] OutlinedPixels(PixelMapDocument map,out byte[] surfaces)
+        {
+            var result=new Color32[map.pixels.Length];var types=new byte[result.Length];surfaces=types;
+            for(int i=0;i<result.Length;i++){var sample=PixelMapSurfaceResolver.Resolve(map,i);types[i]=sample.surface;result[i]=PixelMapSurfaceResolver.VariationColor(map,sample,i);}
+            float Hash(int x,int y)=>PixelMapSurfaceResolver.Hash(x,y,map.seed);
             if(!map.pathOutline||map.outlinePixels<=0)return result;
             int radius=Mathf.Clamp(map.outlinePixels,1,8);
             var distance=new float[result.Length];for(int i=0;i<distance.Length;i++)distance[i]=float.PositiveInfinity;
             for(int y=0;y<map.height;y++)for(int x=0;x<map.width;x++)
             {
-                if(map.Surface(y*map.width+x)!=1)continue;
+                if(types[y*map.width+x]!=1)continue;
                 // Only dilate the boundary, never repaint interiors or water.
-                if(x>0&&y>0&&x<map.width-1&&y<map.height-1&&map.Surface(map.Index(x-1,y))==1&&map.Surface(map.Index(x+1,y))==1&&map.Surface(map.Index(x,y-1))==1&&map.Surface(map.Index(x,y+1))==1)continue;
+                if(x>0&&y>0&&x<map.width-1&&y<map.height-1&&types[map.Index(x-1,y)]==1&&types[map.Index(x+1,y)]==1&&types[map.Index(x,y-1)]==1&&types[map.Index(x,y+1)]==1)continue;
                 for(int dy=-radius;dy<=radius;dy++)for(int dx=-radius;dx<=radius;dx++)
                 {
                     int nx=x+dx,ny=y+dy;if(nx<0||ny<0||nx>=map.width||ny>=map.height||dx*dx+dy*dy>radius*radius)continue;
-                    int i=ny*map.width+nx;if(map.Surface(i)==0)distance[i]=Mathf.Min(distance[i],Mathf.Sqrt(dx*dx+dy*dy));
+                    int i=ny*map.width+nx;if(types[i]==0)distance[i]=Mathf.Min(distance[i],Mathf.Sqrt(dx*dx+dy*dy));
                 }
             }
             for(int y=0;y<map.height;y++)for(int x=0;x<map.width;x++)
@@ -38,8 +42,8 @@ namespace HeartDev.MapWorkshop
             var pixels=new Color32[map.pixels.Length];hasWater=false;
             for(int y=0;y<map.height;y++)for(int x=0;x<map.width;x++)
             {
-                int i=y*map.width+x;byte gradient=gradients!=null?gradients.IndexAt(i):(byte)0;
-                if(map.Surface(i)!=2){pixels[i]=new Color32(0,0,gradient,255);continue;}hasWater=true;
+                int i=y*map.width+x;var sample=PixelMapSurfaceResolver.Resolve(map,i);byte gradient=gradients!=null?gradients.IndexAt(sample):(byte)0;
+                if(sample.surface!=2){pixels[i]=new Color32(0,0,gradient,255);continue;}hasWater=true;
                 pixels[i]=new Color32(255,0,gradient,255);
             }
             ApplyWaterDepth(pixels,map.width,map.height,map.waterGradientPixels,map.riverBankPixels);

@@ -12,12 +12,19 @@ namespace HeartDev.MapWorkshop
         private void CopyBrushPattern(PixelMapDocument.PaintLayer layer)
         {
             layer.pattern=BrushStyle();
+            if(document.FormatVersion>=1)layer.materialStyleOverride=true;
         }
         private void RefreshLayerStyle()
         {
             if(layerStylePanel==null)return;layerStylePanel.Clear();var layer=ActiveLayer;if(layer==null)return;
             if(layer.pattern==null)layer.pattern=new PixelMapDocument.PatternStyle();var p=layer.pattern;
             var fold=new Foldout{text="Estilo editable · "+layer.name,value=false};layerStylePanel.Add(fold);fold.SetEnabled(!layer.locked);
+            if(document.FormatVersion>=1)
+            {
+                var scope=new Toggle("Sobrescribir materiales de esta capa"){value=layer.materialStyleOverride};
+                scope.RegisterValueChangedCallback(e=>{ChangeMap(()=>layer.materialStyleOverride=e.newValue,"Alcance del estilo de capa");rootVisualElement.schedule.Execute(RefreshLayerStyle);});fold.Add(scope);
+                if(!layer.materialStyleOverride){fold.Add(Caption("Los materiales conservan sus ajustes propios. Activa la sobrescritura para aplicar un patrón o degradado a toda esta capa.","hint"));return;}
+            }
             var enabled=new Toggle("Patrón de capa"){value=p.enabled};enabled.RegisterValueChangedCallback(e=>ChangeMap(()=>p.enabled=e.newValue,"Activar patrón de capa"));fold.Add(enabled);
             var edge=new SliderInt("Transición · px",0,8){value=p.edgePixels,showInputField=true};edge.RegisterValueChangedCallback(e=>ChangeMap(()=>p.edgePixels=e.newValue,"Transición de material"));fold.Add(edge);
             fold.Add(Caption("La transición tramada mezcla materiales de suelo con la capa inferior. Caminos y agua usan sus propios bordes.","hint"));

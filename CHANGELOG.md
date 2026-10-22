@@ -1,7 +1,21 @@
 # Changelog
 
+## Unreleased — 2026-10-22
+
+- Keep camera traversal responsive by recentering existing preview geometry; preserve upright props while the curvature focus moves.
+- Add configurable 360-degree cloud coverage while preserving the original cloud patch and UV layout.
+- Initialize paused marine particle buffers before upload, support presentation curvature for swarms, and exclude animated algae from rigid caustic overlays.
+- Include preview performance controls and the latest Map Workshop / Tile Prop Studio renderer and navigation fixes.
+- Add versioned map documents and an optional copy-based migration that preserves legacy raster colors, patterns, gradients and geometry.
+- Add stable local surface material identities, per-material appearance and variation, and a shared surface resolver.
+- Register independent brush materials in format 1 documents and make layer appearance overrides explicit.
+- Reuse equivalent prepared patterns and avoid per-pixel material key allocations.
+- Add ten Editor tests for material resolution and migration. The material library UI and full region editing workflow remain in subsequent phases.
+
 ## Unreleased — 2026-10-21
 
+- Add a lightweight editing profile with automatic low-spec detection, lower-cost 3D previews, and throttled canvas refresh while painting.
+- Avoid rebuilding the 3D map preview for every brush movement, merge canvas overlays before texture upload, and group props by mesh chunk during preview builds.
 - Add the companion Tile Prop Studio for reusable, editable tile-built props, with versioned documents and prefab updates.
 - Add a centralized command registry, Blender-inspired modal transforms, component selection, connected selection, command search, and shared gizmo/keyboard operations.
 - Add live numeric Move/Rotate/Scale/Extrude/Duplicate previews with axis constraints, snapping, cancellation and grouped undo.

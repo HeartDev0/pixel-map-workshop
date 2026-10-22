@@ -32,6 +32,8 @@ namespace HeartDev.MapWorkshop
             gradients.Add(Caption("Depende de la distancia a la cámara 3D. No modifica clusters ni props. Cualquier otra textura puede tener su degradado en Estilo editable de su capa.","hint"));
             var clouds=new Foldout{text="Nubes atmosféricas",value=false};parent.Add(clouds);
             var enabled=new Toggle("Mostrar capa de nubes"){value=document!=null&&document.cloudsEnabled};enabled.RegisterValueChangedCallback(e=>ChangeMap(()=>document.cloudsEnabled=e.newValue,"Nubes atmosféricas"));clouds.Add(enabled);
+            var wrap=new Toggle("Rodear mapa · 360°"){value=document==null||document.cloudWrapAround,tooltip="Extiende las capas originales por delante, detrás y a ambos lados. Desactívalo para volver a la extensión original."};
+            wrap.RegisterValueChangedCallback(e=>ChangeMap(()=>document.cloudWrapAround=e.newValue,"Extensión de nubes"));clouds.Add(wrap);
             var texture=new ObjectField("Patrón"){objectType=typeof(Texture2D),allowSceneObjects=false,value=document!=null?document.cloudPattern:null};texture.RegisterValueChangedCallback(e=>ChangeMap(()=>document.cloudPattern=e.newValue as Texture2D,"Patrón de nubes"));clouds.Add(texture);
             var preview=new UnityEngine.UIElements.Image{image=document!=null?document.cloudPattern:null,scaleMode=ScaleMode.ScaleToFit};preview.style.width=72;preview.style.height=60;clouds.Add(preview);texture.RegisterValueChangedCallback(e=>preview.image=e.newValue as Texture2D);
             clouds.Add(Caption("Ambas capas comparten el patrón. Una malla por capa, sin partículas ni sombras.","hint"));

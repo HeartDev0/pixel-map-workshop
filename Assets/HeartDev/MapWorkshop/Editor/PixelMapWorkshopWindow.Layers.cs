@@ -210,7 +210,7 @@ namespace HeartDev.MapWorkshop
         private void PaintLayerPixel(int x,int y)
         {
             var layer=ActiveLayer;int i=document.Index(x,y);
-            layer.pixels[i]=layer.pattern!=null&&layer.pattern.enabled?(Color32)color:BrushPatternColor(x,y);layer.surfaces[i]=(byte)surfaceMode;
+            layer.pixels[i]=document.FormatVersion==0&&layer.pattern!=null&&layer.pattern.enabled?(Color32)color:BrushPatternColor(x,y);layer.surfaces[i]=(byte)surfaceMode;
             if(layer.materialIds.Length==document.pixels.Length)layer.materialIds[i]=strokeMaterialId;
         }
         private void PlaceGrass(int x,int y)

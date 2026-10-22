@@ -26,6 +26,7 @@ namespace HeartDev.MapWorkshop
         private Toggle ambient3DToggle,ambientActiveToggle;
         private PixelMapBaker.Result ambientPresetModel;
         private PixelMapDocument.AmbientZone ambientPreviewZone;
+        private float ambientPreviewFocus;
         private string ambientPreviewSignature;
         private IMGUIContainer ambientEffectPreview;
         private Label ambientPresetDescription;
@@ -116,27 +117,42 @@ namespace HeartDev.MapWorkshop
         }
         private void DisposeAmbientPresetPreview()
         {
-            ambientPresetModel?.Dispose();ambientPresetModel=null;ambientPreviewZone=null;ambientPreviewSignature=null;
+            ambientPresetModel?.Dispose();ambientPresetModel=null;ambientPreviewZone=null;ambientPreviewSignature=null;ambientPreviewFocus=0;
         }
-        private void UpdateAmbientPresetPreview()
+        private Vector3 AmbientPreviewCenter(PixelMapDocument.AmbientZone zone,float curvature,float focus)
+        {
+            var center=zone.area.center;float x=(center.x-document.width*.5f)/document.pixelsPerUnit,z=center.y/document.pixelsPerUnit;
+            float y=document.RawSurfaceHeight(center.x,center.y)+zone.heightPixels*.5f/document.pixelsPerUnit;
+            return new Vector3(x,y-curvature*((z-focus)*(z-focus)+.65f*x*x),z);
+        }
+        private void UpdateAmbientPresetPreview(float previewFocus)
         {
             if(!previewPresetIn3D||previewActiveAmbient||document==null||preview==null){DisposeAmbientPresetPreview();return;}
             var preset=PixelMapAmbientPresets.All[Mathf.Clamp(ambientPresetIndex,0,PixelMapAmbientPresets.All.Count-1)];
             var sprite=SpriteForPreset(preset);if(sprite==null&&preset.RequiresSprite){DisposeAmbientPresetPreview();return;}
             var zone=CreateAmbientPresetZone(preset,sprite);
-            PlaceAmbientPreviewZone(zone);
+            PlaceAmbientPreviewZone(zone,previewFocus*document.pixelsPerUnit);
             if(zone.area.width<=0||zone.area.height<=0){DisposeAmbientPresetPreview();return;}
-            float curve=curvedPreview?previewCurvature:0,focus=viewPosition*document.height/document.pixelsPerUnit;
-            string signature=document.GetEntityId()+":"+JsonUtility.ToJson(zone)+":"+curve.ToString("R")+":"+focus.ToString("R");
-            if(ambientPresetModel!=null&&ambientPreviewSignature==signature)return;
+            float curve=curvedPreview?previewCurvature:0,focus=previewFocus;
+            var area=zone.area;zone.area=default(RectInt);string signature=document.GetEntityId()+":"+JsonUtility.ToJson(zone)+":"+curve.ToString("R");zone.area=area;
+            if(ambientPresetModel!=null&&ambientPreviewSignature==signature)
+            {
+                if(ambientPreviewZone!=null)
+                {
+                    PixelMapBaker.RecenterCurvature(ambientPresetModel,curve,ambientPreviewFocus,focus);
+                    ambientPresetModel.root.transform.position+=AmbientPreviewCenter(zone,curve,focus)-AmbientPreviewCenter(ambientPreviewZone,curve,focus);
+                }
+                ambientPreviewZone=zone;ambientPreviewFocus=focus;return;
+            }
             DisposeAmbientPresetPreview();var updated=PixelMapBaker.BuildAmbientPreview(document,zone,curve,focus,model?.root?.transform);
             try
             {
+                PixelMapWorkshopPerformance.Configure(updated.root);
                 preview.AddSingleGO(updated.root);
                 PixelMapBaker.SimulateAmbient(updated,0,true);
             }
             catch{updated.Dispose();throw;}
-            ambientPresetModel=updated;ambientPreviewZone=zone;ambientPreviewSignature=signature;
+            ambientPresetModel=updated;ambientPreviewZone=zone;ambientPreviewFocus=focus;ambientPreviewSignature=signature;
         }
         private void ApplyAmbientPreset(bool create)
         {
@@ -187,7 +203,7 @@ namespace HeartDev.MapWorkshop
                 }
                 if(ambientThumbnailModel==null||ambientThumbnailSignature!=signature)
                 {
-                    ambientThumbnailModel?.Dispose();ambientThumbnailModel=PixelMapBaker.BuildAmbientPreview(document,zone,0,0);ambientThumbnailRenderer.AddSingleGO(ambientThumbnailModel.root);
+                    ambientThumbnailModel?.Dispose();ambientThumbnailModel=PixelMapBaker.BuildAmbientPreview(document,zone,0,0);PixelMapWorkshopPerformance.Configure(ambientThumbnailRenderer);PixelMapWorkshopPerformance.Configure(ambientThumbnailModel.root);ambientThumbnailRenderer.AddSingleGO(ambientThumbnailModel.root);
                     PixelMapBaker.SimulateAmbient(ambientThumbnailModel,0,true);
                     ambientThumbnailSignature=signature;ambientThumbnailTime=EditorApplication.timeSinceStartup;
                 }
@@ -204,14 +220,15 @@ namespace HeartDev.MapWorkshop
             catch(ExitGUIException){throw;}
             catch(Exception ex){DisposeAmbientThumbnail();GUI.Label(rect,"No se pudo mostrar el ambiente: "+ex.Message);}
         }
-        private void PlaceAmbientPreviewZone(PixelMapDocument.AmbientZone zone)
+        private void PlaceAmbientPreviewZone(PixelMapDocument.AmbientZone zone,float? focusPixels=null)
         {
             if(selectionMask!=null&&selectionWidth==document.width&&selectionHeight==document.height&&selectionBounds.width>0&&selectionBounds.height>0)zone.area=selectionBounds;
             else if(document.ambientZones.Count>0)zone.area=document.ambientZones[Mathf.Clamp(ambientZoneIndex,0,document.ambientZones.Count-1)].area;
             else
             {
                 int w=Mathf.Min(document.width,Mathf.Max(16,document.width/2)),h=Mathf.Min(document.height,Mathf.Max(16,w));
-                zone.area=new RectInt((document.width-w)/2,Mathf.Clamp(Mathf.RoundToInt(viewPosition*document.height)-h/2,0,document.height-h),w,h);
+                float center=focusPixels??viewPosition*document.height;
+                zone.area=new RectInt((document.width-w)/2,Mathf.Clamp(Mathf.RoundToInt(center)-h/2,0,document.height-h),w,h);
             }
         }
         private void DrawAmbientZoneBounds(Rect rect)

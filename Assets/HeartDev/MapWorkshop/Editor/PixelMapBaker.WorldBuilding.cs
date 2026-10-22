@@ -13,13 +13,14 @@ namespace HeartDev.MapWorkshop
         private sealed class Faces
         {
             public readonly List<Vector3> vertices=new List<Vector3>();public readonly List<Vector2> uv=new List<Vector2>();public readonly List<int> indices=new List<int>();
+            public readonly List<CurvatureRigidSpan> rigidSpans=new List<CurvatureRigidSpan>();
             public void Quad(Vector3 a,Vector3 b,Vector3 c,Vector3 d,Vector2[] tex=null)
             {
                 int n=vertices.Count;vertices.AddRange(new[]{a,b,c,d});uv.AddRange(tex??new[]{Vector2.zero,Vector2.right,Vector2.one,Vector2.up});indices.AddRange(new[]{n,n+2,n+1,n,n+3,n+2});
             }
             public void Emit(string name,Material material,Result result,bool shadows=true)
             {
-                if(vertices.Count==0)return;var mesh=new Mesh{name=name,indexFormat=vertices.Count>65535?IndexFormat.UInt32:IndexFormat.UInt16};mesh.SetVertices(vertices);mesh.SetUVs(0,uv);mesh.SetTriangles(indices,0);mesh.RecalculateBounds();MeshObject(name,mesh,material,result.root.transform,result,false,shadows);
+                if(vertices.Count==0)return;var mesh=new Mesh{name=name,indexFormat=vertices.Count>65535?IndexFormat.UInt32:IndexFormat.UInt16};mesh.SetVertices(vertices);mesh.SetUVs(0,uv);mesh.SetTriangles(indices,0);mesh.RecalculateBounds();var transform=MeshObject(name,mesh,material,result.root.transform,result,false,shadows);if(rigidSpans.Count>0)result.curvatureRigidGeometry.Add(new CurvatureRigidGeometry(mesh,transform,rigidSpans));
             }
         }
         private static Vector3 Bend(Vector3 p,float curvature,float focus){p.y-=curvature*((p.z-focus)*(p.z-focus)+.65f*p.x*p.x);return p;}
@@ -40,12 +41,14 @@ namespace HeartDev.MapWorkshop
             {
                 if(p.shape!=PixelMapDocument.PropShape.Caja||p.sprite==null||!map.DecorationVisible(p))continue;
                 float ppu=map.pixelsPerUnit,w=p.sprite.rect.width/ppu,h=p.sprite.rect.height/ppu,d=Mathf.Max(1,p.depthPixels)/ppu;
-                var foot=new Vector3((p.pixel.x+.5f-map.width*.5f)/ppu,map.SurfaceHeight(p.pixel.x+.5f,p.pixel.y+.5f)+p.heightOffsetPixels/ppu,(p.pixel.y+.5f)/ppu);
+                float wx=(p.pixel.x+.5f-map.width*.5f)/ppu,wz=(p.pixel.y+.5f)/ppu;
+                var foot=new Vector3(wx,map.SurfaceHeight(p.pixel.x+.5f,p.pixel.y+.5f)+p.heightOffsetPixels/ppu-curvature*((wz-focus)*(wz-focus)+.65f*wx*wx),wz);
                 var rotate=Quaternion.Euler(0,p.yaw,0)*Quaternion.Euler(map.PropPitch(p),0,0);
-                Vector3 P(float x,float y,float z)=>Bend(foot+rotate*new Vector3(x,y,z),curvature,focus);
+                Vector3 P(float x,float y,float z)=>foot+rotate*new Vector3(x,y,z);
+                var propStarts=new Dictionary<Faces,int>();
                 void Face(Sprite sprite,Vector3 a,Vector3 b,Vector3 c,Vector3 e)
                 {
-                    sprite=sprite!=null?sprite:p.sprite;if(!groups.TryGetValue(sprite.texture,out var face)){face=new Faces();groups.Add(sprite.texture,face);}
+                    sprite=sprite!=null?sprite:p.sprite;if(!groups.TryGetValue(sprite.texture,out var face)){face=new Faces();groups.Add(sprite.texture,face);}if(!propStarts.ContainsKey(face))propStarts.Add(face,face.vertices.Count);
                     float width=Vector3.Distance(a,b)*map.pixelsPerUnit,height=Vector3.Distance(a,e)*map.pixelsPerUnit;
                     var rect=SpriteRectUV(sprite);float tileW=Mathf.Max(1,sprite.rect.width),tileH=Mathf.Max(1,sprite.rect.height);
                     for(float y=0;y<height-.001f;y+=tileH)for(float x=0;x<width-.001f;x+=tileW)
@@ -62,6 +65,7 @@ namespace HeartDev.MapWorkshop
                 Face(p.sideSprite,P(w/2,0,-d/2),P(w/2,0,d/2),P(w/2,h,d/2),P(w/2,h,-d/2));
                 Face(p.topSprite,P(-w/2,h,-d/2),P(w/2,h,-d/2),P(w/2,h,d/2),P(-w/2,h,d/2));
                 Face(p.sideSprite,P(-w/2,0,d/2),P(w/2,0,d/2),P(w/2,0,-d/2),P(-w/2,0,-d/2));
+                foreach(var span in propStarts)span.Key.rigidSpans.Add(new CurvatureRigidSpan(span.Value,span.Key.vertices.Count-span.Value,wz));
             }
             foreach(var pair in groups)pair.Value.Emit("BoxProps_"+pair.Key.name,MaterialFor(pair.Key,result,materials),result);
         }
@@ -184,6 +188,7 @@ namespace HeartDev.MapWorkshop
                 result.ambientSystems.AddRange(updated.ambientSystems);result.marineSystems.AddRange(updated.marineSystems);result.ambientRoots.AddRange(updated.ambientRoots);
                 result.ambientResources.AddRange(updated.ambientResources);result.ambientMaterials.AddRange(updated.ambientMaterials);result.owned.AddRange(updated.owned);updated.owned.Clear();
                 result.drawGroups+=updated.ambientDrawGroups-result.ambientDrawGroups;result.ambientDrawGroups=updated.ambientDrawGroups;result.ambientTime=0;result.animatedClouds|=updated.animatedClouds;
+                result.curvatureGeometry.Clear();result.ambientParticleAnchors.Clear();result.curvatureCacheReady=false;
             }
         }
         private static void BuildAmbientZones(PixelMapDocument map,float curvature,float focus,Result result,Transform surfaceRoot=null)

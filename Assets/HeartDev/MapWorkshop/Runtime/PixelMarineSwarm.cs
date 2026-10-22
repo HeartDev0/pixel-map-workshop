@@ -31,7 +31,17 @@ namespace HeartDev.MapWorkshop
         private ParticleSystemRenderer[] renderers;
         private MaterialPropertyBlock[] properties;
         private static readonly int ClockProperty=Shader.PropertyToID("_WaterClock");
+        private float presentationCurvature,presentationFocus;
         public float Elapsed=>clock;
+        // Keep movement and avoidance in the authored, unbent volume. Bend only
+        // the uploaded positions, so following the camera never accumulates drift.
+        public void SetPresentationCurvature(float curvature,float focus)
+        {
+            curvature=Mathf.Max(0,curvature);
+            if(Mathf.Approximately(presentationCurvature,curvature)&&Mathf.Approximately(presentationFocus,focus))return;
+            presentationCurvature=curvature;presentationFocus=focus;
+            if(fish!=null)Upload();
+        }
         private void OnEnable(){if(systems.Length>0)ResetSwarm();}
         private void Update()
         {
@@ -78,6 +88,9 @@ namespace HeartDev.MapWorkshop
             for(int i=0;i<systems.Length;i++)
             {
                 renderers[i]=systems[i]!=null?systems[i].GetComponent<ParticleSystemRenderer>():null;properties[i]=new MaterialPropertyBlock();
+                // SetParticles on an uninitialized, stopped system retains zero particles.
+                // Initialize and pause it before uploading the controller's fixed buffers.
+                if(systems[i]!=null){systems[i].Simulate(0,false,true,false);systems[i].Pause(false);}
                 int n=systems[i]!=null?Mathf.Clamp(systems[i].main.maxParticles,0,64):0;
                 buffers[i]=new ParticleSystem.Particle[n];custom[i]=new List<Vector4>(n);for(int j=0;j<n;j++)custom[i].Add(Vector4.zero);count+=n;
             }
@@ -95,6 +108,46 @@ namespace HeartDev.MapWorkshop
                 fish[index]=new Fish{group=group,system=s,slot=slot,position=position,direction=Vector3.right,offset=offset,phase=Random01()*6.283185f,radius=radius,valid=valid};index++;
             }
             Upload();
+        }
+        public void ApplyVerticalShear(float slope,float offset)
+        {
+            if(Mathf.Approximately(slope,0)&&Mathf.Approximately(offset,0))return;
+            var worldShear=Matrix4x4.identity;worldShear.m12=slope;worldShear.m13=offset;
+            var localShear=transform.worldToLocalMatrix*worldShear*transform.localToWorldMatrix;
+            var localDirection=localShear;
+            if(groups!=null)foreach(var group in groups)
+            {
+                group.position=localShear.MultiplyPoint3x4(group.position);
+                group.target=localShear.MultiplyPoint3x4(group.target);
+                group.direction=localDirection.MultiplyVector(group.direction).normalized;
+            }
+            if(fish!=null)for(int i=0;i<fish.Length;i++)
+            {
+                var item=fish[i];item.position=localShear.MultiplyPoint3x4(item.position);
+                item.offset=localDirection.MultiplyVector(item.offset);
+                item.direction=localDirection.MultiplyVector(item.direction).normalized;fish[i]=item;
+            }
+            if(gridWidth>1&&gridHeight>1&&floors.Length==gridWidth*gridHeight&&ceilings.Length==floors.Length)
+            {
+                for(int z=0;z<gridHeight;z++)for(int x=0;x<gridWidth;x++)
+                {
+                    int i=z*gridWidth+x;
+                    float px=Mathf.Lerp(swimArea.xMin,swimArea.xMax,x/(float)(gridWidth-1));
+                    float pz=Mathf.Lerp(swimArea.yMin,swimArea.yMax,z/(float)(gridHeight-1));
+                    floors[i]=localShear.MultiplyPoint3x4(new Vector3(px,floors[i],pz)).y;
+                    ceilings[i]=localShear.MultiplyPoint3x4(new Vector3(px,ceilings[i],pz)).y;
+                }
+            }
+            if(obstacles!=null)for(int i=0;i<obstacles.Length;i++)
+            {
+                var bounds=obstacles[i];var center=localShear.MultiplyPoint3x4(bounds.center);var ext=bounds.extents;
+                var size=new Vector3(
+                    Mathf.Abs(localShear.m00)*ext.x+Mathf.Abs(localShear.m01)*ext.y+Mathf.Abs(localShear.m02)*ext.z,
+                    Mathf.Abs(localShear.m10)*ext.x+Mathf.Abs(localShear.m11)*ext.y+Mathf.Abs(localShear.m12)*ext.z,
+                    Mathf.Abs(localShear.m20)*ext.x+Mathf.Abs(localShear.m21)*ext.y+Mathf.Abs(localShear.m22)*ext.z);
+                bounds.center=center;bounds.size=size*2;obstacles[i]=bounds;
+            }
+            if(fish!=null)Upload();
         }
         private bool MoveSafely(Vector3 from,Vector3 to,float radius,out Vector3 position)
         {
@@ -148,7 +201,9 @@ namespace HeartDev.MapWorkshop
             foreach(var f in fish)
             {
                 var color=tint;color.a*=f.valid?visibility:0;var size=f.system<spriteSizes.Length?spriteSizes[f.system]:Vector2.one*.1f;
-                buffers[f.system][f.slot]=new ParticleSystem.Particle{position=f.position,startColor=color,startSize3D=new Vector3(size.x,size.y,1),rotation3D=new Vector3(0,-Mathf.Atan2(f.direction.z,f.direction.x)*Mathf.Rad2Deg,0),startLifetime=100000,remainingLifetime=100000,randomSeed=(uint)(f.slot+1)};
+                var position=f.position;float z=position.z-presentationFocus;
+                position.y-=presentationCurvature*(z*z+.65f*position.x*position.x);
+                buffers[f.system][f.slot]=new ParticleSystem.Particle{position=position,startColor=color,startSize3D=new Vector3(size.x,size.y,1),rotation3D=new Vector3(0,-Mathf.Atan2(f.direction.z,f.direction.x)*Mathf.Rad2Deg,0),startLifetime=100000,remainingLifetime=100000,randomSeed=(uint)(f.slot+1)};
                 custom[f.system][f.slot]=new Vector4(f.direction.x,f.direction.z,f.phase,1);
             }
             for(int i=0;i<systems.Length;i++)if(systems[i]!=null){systems[i].SetParticles(buffers[i],buffers[i].Length);systems[i].SetCustomParticleData(custom[i],ParticleSystemCustomData.Custom1);if(renderers[i]!=null){properties[i].SetFloat(ClockProperty,clock);renderers[i].SetPropertyBlock(properties[i]);}}

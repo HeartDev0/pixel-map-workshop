@@ -8,6 +8,7 @@ using UnityEditor.Callbacks;
 using UnityEditor.UIElements;
 using UnityEngine;
 using UnityEngine.UIElements;
+using HeartDev.MapWorkshop;
 namespace HeartDev.TilePropStudio
 {
     public sealed partial class TilePropStudioWindow : EditorWindow
@@ -70,9 +71,10 @@ namespace HeartDev.TilePropStudio
         {
             var obj=EditorUtility.EntityIdToObject(id);if(!(obj is TilePropDocument doc))return false;OpenDocument(doc);return true;
         }
-        private void OnEnable(){wantsMouseMove=true;saveChangesMessage="Hay cambios sin guardar en el prop.";if(EnsureDocumentData(document))EditorUtility.SetDirty(document);Undo.undoRedoPerformed+=OnUndo;EditorApplication.update+=Tick;}
-        private void OnDisable(){if(modalOperationActive)CancelModalTransform();Undo.undoRedoPerformed-=OnUndo;EditorApplication.update-=Tick;ReleaseViewInput();previewModel?.Dispose();previewModel=null;preview?.Cleanup();preview=null;}
+        private void OnEnable(){wantsMouseMove=true;saveChangesMessage="Hay cambios sin guardar en el prop.";if(EnsureDocumentData(document))EditorUtility.SetDirty(document);Undo.undoRedoPerformed+=OnUndo;EditorApplication.update+=Tick;PixelMapWorkshopPerformance.Changed+=OnPerformanceSettingsChanged;}
+        private void OnDisable(){if(modalOperationActive)CancelModalTransform();Undo.undoRedoPerformed-=OnUndo;EditorApplication.update-=Tick;PixelMapWorkshopPerformance.Changed-=OnPerformanceSettingsChanged;ReleaseViewInput();previewModel?.Dispose();previewModel=null;preview?.Cleanup();preview=null;}
         private void OnLostFocus(){ReleaseViewInput();hover=false;viewport?.MarkDirtyRepaint();}
+        private void OnPerformanceSettingsChanged(){PixelMapWorkshopPerformance.Configure(preview);dirtyPreview=true;viewport?.MarkDirtyRepaint();Repaint();}
         private void OnUndo(){if(revertingModalOperation)return;EditorApplication.delayCall+=SaveEditableAtlases;ClearComponentSelection();BuildUI();Changed(false);ResizePalette();}
         public void CreateGUI()=>BuildUI();
         private static VisualElement Row(){var row=new VisualElement();row.AddToClassList("row");return row;}
@@ -93,6 +95,8 @@ namespace HeartDev.TilePropStudio
             var header=Row();header.AddToClassList("header");root.Add(header);header.Add(new Label("TILE PROP STUDIO"));
             var picker=new ObjectField{objectType=typeof(TilePropDocument),value=document,allowSceneObjects=false};picker.style.flexGrow=1;picker.RegisterValueChangedCallback(e=>{SaveDocument();document=e.newValue as TilePropDocument;ClearComponentSelection();cameraReady=false;BuildUI();Changed(false);});header.Add(picker);
             header.Add(ActionButton("Nuevo…",NewDocument));header.Add(ActionButton("Guardar",SaveDocument));header.Add(ActionButton("Exportar / actualizar",Export));header.Add(ActionButton("Map Workshop",()=>EditorApplication.ExecuteMenuItem("Tools/HeartDev/Pixel Map Workshop")));
+            var lightweightToggle=new ToolbarToggle{text="Ligero",value=PixelMapWorkshopPerformance.Lightweight};lightweightToggle.tooltip="Reduce sombras y detalle del visor 3D, y limita los refrescos. No cambia el prop exportado.";
+            lightweightToggle.RegisterValueChangedCallback(e=>PixelMapWorkshopPerformance.Lightweight=e.newValue);header.Add(lightweightToggle);
             var toolbar=Row();toolbar.AddToClassList("toolbar");root.Add(toolbar);toolButtons=new Button[4];string[] toolNames={"B · Colocar","P · Pintar","V · Seleccionar","Shift+E · Borrar"},toolIcons={"place","paint","select","erase"};for(int i=0;i<4;i++){int index=i;toolButtons[i]=IconActionButton(toolNames[i],toolIcons[i],()=>SetTool((Tool)index));toolButtons[i].AddToClassList("tool-icon-button");toolbar.Add(toolButtons[i]);}
             componentModeField=new EnumField("Modo",componentMode);componentModeField.tooltip="Tab cambia entre Object y Edit. En Edit: 1 vértices, 2 bordes, 3 caras.";componentModeField.style.minWidth=140;componentModeField.RegisterValueChangedCallback(e=>{componentMode=(ComponentMode)e.newValue;if(componentMode!=ComponentMode.Objeto)editComponentMode=componentMode;ClearComponentSelection();SelectionChanged();});toolbar.Add(componentModeField);
             transformModeField=new EnumField("Gizmo",transformMode);transformModeField.style.minWidth=110;transformModeField.RegisterValueChangedCallback(e=>{transformMode=(TransformMode)e.newValue;viewport?.MarkDirtyRepaint();});toolbar.Add(transformModeField);

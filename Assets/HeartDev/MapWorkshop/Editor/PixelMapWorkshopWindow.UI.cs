@@ -47,11 +47,15 @@ namespace HeartDev.MapWorkshop
             var brand=new Label("MAP WORKSHOP");brand.AddToClassList("brand");header.Add(brand);
             dirtyInfo=Caption("","dirty-indicator");header.Add(dirtyInfo);
             var picker=new ObjectField{objectType=typeof(PixelMapDocument),value=document,allowSceneObjects=false};picker.style.flexGrow=1;picker.tooltip="Documento de trabajo del mapa";
-            picker.RegisterValueChangedCallback(e=>{EndStroke();ClearSelection();selectedProp=-1;document=e.newValue as PixelMapDocument;BuildInterface();});header.Add(picker);
+            picker.RegisterValueChangedCallback(e=>{var chosen=e.newValue as PixelMapDocument;if(chosen!=null&&!chosen.IsSupportedFormat){picker.SetValueWithoutNotify(document);EditorUtility.DisplayDialog("Formato más reciente","Actualiza Map Workshop para editar este documento.","Aceptar");return;}EndStroke();ClearSelection();selectedProp=-1;document=chosen;BuildInterface();});header.Add(picker);
             header.Add(Button("Nuevo…",CreateMap));header.Add(Button("Deshacer",()=>Undo.PerformUndo()));header.Add(Button("Rehacer",()=>Undo.PerformRedo()));
             var resize=Button("Lienzo…",()=>OpenCanvasSize());resize.SetEnabled(document!=null);header.Add(resize);
             var save=Button("Guardar",Save);save.SetEnabled(document!=null);header.Add(save);
             header.Add(Button("Distribución",ResetWorkspace));
+            var lightweightToggle=new ToolbarToggle{text="Ligero",value=PixelMapWorkshopPerformance.Lightweight};
+            lightweightToggle.tooltip="Reduce sombras y detalle del visor 3D, y limita los refrescos al pintar. No cambia el mapa exportado.";
+            lightweightToggle.RegisterValueChangedCallback(e=>PixelMapWorkshopPerformance.Lightweight=e.newValue);
+            header.Add(lightweightToggle);
             var bake=Button("Actualizar mapa",UpdateExport);bake.AddToClassList("primary");bake.SetEnabled(document!=null);header.Add(bake);
 
             var options=Row("brush-options");rootVisualElement.Add(options);
@@ -126,7 +130,7 @@ namespace HeartDev.MapWorkshop
             previewPanel=new IMGUIContainer(DrawPreview);previewPanel.style.flexGrow=1;threePane.Add(previewPanel);
             BuildPreviewInteractionControls(threePane);
             var cameraControls=new Foldout{text="Cámara y curvatura",value=false};threePane.Add(cameraControls);
-            AddCameraSlider(cameraControls,"Recorrer",0,1,viewPosition,v=>viewPosition=v,true);AddCameraSlider(cameraControls,"Distancia",.8f,15,distance,v=>distance=v);AddCameraSlider(cameraControls,"Giro",-180,180,yaw,v=>yaw=v);AddCameraSlider(cameraControls,"Inclinación",10,85,pitch,v=>pitch=v);
+            AddCameraSlider(cameraControls,"Recorrer",0,1,viewPosition,v=>viewPosition=v);AddCameraSlider(cameraControls,"Distancia",.8f,15,distance,v=>distance=v);AddCameraSlider(cameraControls,"Giro",-180,180,yaw,v=>yaw=v);AddCameraSlider(cameraControls,"Inclinación",10,85,pitch,v=>pitch=v);
             BuildCurveControls(cameraControls);
             cameraControls.Add(Button("Centrar",()=>{viewPosition=.5f;previewPanX=0;distance=4;yaw=0;pitch=35;RequestCameraRepaint();BuildInterface();}));
             paintPane.style.display=workspace==1?DisplayStyle.None:DisplayStyle.Flex;threePane.style.display=workspace==0?DisplayStyle.None:DisplayStyle.Flex;
@@ -167,7 +171,7 @@ namespace HeartDev.MapWorkshop
             LeaveTilePropPlacement();
             EndStroke();selectionTool=SelectionTool.Ninguna;RefreshSelectionTools();bucket=false;bucketToggle?.SetValueWithoutNotify(false);
             bool keepSample=selected==Brush.Pintar&&!string.IsNullOrEmpty(sampledLayerId)&&activeLayerId==sampledLayerId;
-            if(brush!=selected){brush=selected;if(!keepSample)ChooseToolLayer();else RefreshLayers();}if(selected==Brush.Pintar)sampledLayerId=null;RefreshToolUI();
+            if(brush!=selected){brush=selected;if(!keepSample&&(document==null||document.FormatVersion==0))ChooseToolLayer();else RefreshLayers();}if(selected==Brush.Pintar)sampledLayerId=null;RefreshToolUI();
         }
         private void RefreshToolUI()
         {

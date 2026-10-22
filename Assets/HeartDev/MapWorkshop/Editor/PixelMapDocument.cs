@@ -10,6 +10,20 @@ namespace HeartDev.MapWorkshop
     // Authoring data only. Baked maps contain no dependency on this Editor assembly.
     public sealed partial class PixelMapDocument : ScriptableObject
     {
+        public const int CurrentFormatVersion=1;
+        // Missing field in existing assets must mean legacy, not already migrated.
+        [SerializeField,HideInInspector] private int formatVersion;
+        public int FormatVersion=>formatVersion;
+        public bool IsSupportedFormat=>formatVersion>=0&&formatVersion<=CurrentFormatVersion;
+        internal void SetFormatVersion(int version)=>formatVersion=version;
+        public enum MaterialAppearance { RecordedRecipe, Material, Raster }
+        [Serializable] public sealed class VariationStyle
+        {
+            public bool enabled;
+            public Color color=new Color32(82,151,61,255);
+            public int scale=3,seedOffset;
+            [Range(0,1)] public float density=.15f;
+        }
         [Serializable] public sealed class Decoration
         {
             public Sprite sprite;
@@ -35,6 +49,7 @@ namespace HeartDev.MapWorkshop
             public PatternStyle pattern=new PatternStyle();
             public DistanceGradient gradient=new DistanceGradient();
             public int[] materialIds=Array.Empty<int>();
+            public bool materialStyleOverride;
         }
         [Serializable] public sealed class DistanceGradient
         {
@@ -45,8 +60,12 @@ namespace HeartDev.MapWorkshop
         }
         [Serializable] public sealed class PaintMaterial
         {
+            public string id,name;
+            public MaterialAppearance appearance;
             public PatternStyle pattern=new PatternStyle();
             public DistanceGradient gradient=new DistanceGradient();
+            public VariationStyle variation=new VariationStyle();
+            public bool gradientIncludesWaterZones;
             public byte surface;
             public bool globalWater;
         }
@@ -57,6 +76,7 @@ namespace HeartDev.MapWorkshop
         public DistanceGradient pathGradient=new DistanceGradient{near=new Color32(169,110,72,255),middle=new Color32(191,145,101,255),far=new Color32(215,187,147,255)};
         public float gradientNear=2,gradientFar=14;
         public bool cloudsEnabled;
+        public bool cloudWrapAround=true;
         public Texture2D cloudPattern;
         public Color cloudColor=new Color32(224,246,242,255);
         public float cloudOpacity=.16f,cloudCoverage=.45f,cloudSpeed=.5f;
@@ -119,6 +139,7 @@ namespace HeartDev.MapWorkshop
         public int seed=12345;
         public void Initialize(int w,int h,int ppu)
         {
+            formatVersion=CurrentFormatVersion;
             width=Mathf.Clamp(w,16,1024);height=Mathf.Clamp(h,16,2048);pixelsPerUnit=Mathf.Clamp(ppu,8,128);
             heightStep=1f/pixelsPerUnit;
             pixels=new Color32[width*height];elevations=new int[pixels.Length];surfaces=new byte[pixels.Length];decorations.Clear();tileProps.Clear();layers.Clear();paintMaterials.Clear();originalInLayers=false;
@@ -128,17 +149,15 @@ namespace HeartDev.MapWorkshop
         public int Index(int x,int y)=>Mathf.Clamp(y,0,height-1)*width+Mathf.Clamp(x,0,width-1);
         public byte Surface(int index)
         {
-            if(WaterZoneAt(index%width,index/width)!=null)return 2;
-            for(int i=layers.Count-1;i>=0;i--){var l=layers[i];if(l.visible&&l.pixels.Length==pixels.Length&&l.pixels[index].a>0&&PixelMapPatterns.Covers(l,index))return l.surfaces.Length==pixels.Length?l.surfaces[index]:(byte)0;}
-            return !originalInLayers&&surfaces!=null&&surfaces.Length==pixels.Length?surfaces[index]:(byte)0;
+            return PixelMapSurfaceResolver.Surface(this,index,PixelMapSurfaceResolver.VisibleLayer(this,index));
         }
         public Color32 PixelColor(int index)
         {
-            for(int i=layers.Count-1;i>=0;i--){var l=layers[i];if(l.visible&&l.pixels.Length==pixels.Length&&l.pixels[index].a>0&&PixelMapPatterns.Covers(l,index))return PixelMapPatterns.ColorAt(l,index,width);}return originalInLayers?backgroundColor:pixels[index];
+            return PixelMapSurfaceResolver.Resolve(this,index).Color;
         }
         public PaintLayer TopLayer(int index)
         {
-            for(int i=layers.Count-1;i>=0;i--){var layer=layers[i];if(layer.visible&&layer.pixels.Length==pixels.Length&&layer.pixels[index].a>0&&PixelMapPatterns.Covers(layer,index))return layer;}return null;
+            return PixelMapSurfaceResolver.VisibleLayer(this,index);
         }
         public bool DecorationVisible(Decoration prop)=>string.IsNullOrEmpty(prop.layerId)||layers.Exists(l=>l.id==prop.layerId&&l.visible);
         public bool IsAlgae(Decoration prop)=>prop!=null&&(prop.algae||prop.sprite!=null&&prop.sprite.name.StartsWith("Alga",StringComparison.OrdinalIgnoreCase));
@@ -245,6 +264,13 @@ namespace HeartDev.MapWorkshop
             var map=(PixelMapDocument)target;
             var root=new UnityEngine.UIElements.VisualElement();
             root.Add(new UnityEngine.UIElements.Label($"{map.width} × {map.height} píxeles · {map.decorations.Count} figuras"));
+            root.Add(new UnityEngine.UIElements.Label("Formato "+map.FormatVersion+" · "+map.paintMaterials.Count+" materiales/recetas"));
+            if(!map.IsSupportedFormat){root.Add(new UnityEngine.UIElements.HelpBox("Este documento usa un formato más reciente. Actualiza Map Workshop antes de editarlo.",UnityEngine.UIElements.HelpBoxMessageType.Warning));return root;}
+            if(map.FormatVersion<PixelMapDocument.CurrentFormatVersion)
+            {
+                root.Add(new UnityEngine.UIElements.HelpBox("Mapa anterior al sistema de materiales independientes. Puedes preparar una copia conservando el original.",UnityEngine.UIElements.HelpBoxMessageType.Info));
+                root.Add(new UnityEngine.UIElements.Button(()=>PixelMapMaterialMigration.SaveUpgradedCopy(map)){text="Crear copia con materiales actualizados…"});
+            }
             root.Add(new UnityEngine.UIElements.HelpBox("Documento del taller. Exporta un prefab para usar el mapa en un juego.",UnityEngine.UIElements.HelpBoxMessageType.Info));
             root.Add(new UnityEngine.UIElements.Button(()=>PixelMapWorkshopWindow.OpenDocument(map)){text="Abrir Map Workshop"});return root;
         }

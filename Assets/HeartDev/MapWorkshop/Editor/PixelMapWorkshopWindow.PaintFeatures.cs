@@ -47,7 +47,7 @@ namespace HeartDev.MapWorkshop
         }
         private void SelectSurface(PaintSurface mode)
         {
-            if(surfaceMode!=mode){sampledGradient=null;sampledLayerId=null;surfaceMode=mode;ChooseToolLayer();}surfacePicker?.SetValueWithoutNotify(mode);
+            if(surfaceMode!=mode){sampledGradient=null;sampledVariation=null;sampledLayerId=null;surfaceMode=mode;if(document==null||document.FormatVersion==0)ChooseToolLayer();}surfacePicker?.SetValueWithoutNotify(mode);
             if(pathOptions!=null)pathOptions.style.display=mode==PaintSurface.Camino?DisplayStyle.Flex:DisplayStyle.None;
             if(waterOptions!=null)waterOptions.style.display=mode==PaintSurface.Agua?DisplayStyle.Flex:DisplayStyle.None;
         }

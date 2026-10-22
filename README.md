@@ -14,6 +14,7 @@
 
 - Six pixel brushes, flood fill, pattern tinting/blending and eyedropper material sampling.
 - Paint layers with visibility, locking, drag ordering and undo/redo.
+- Versioned documents with independent per-pixel surface materials and an optional migration that creates a copy of older maps. The visual material library remains in development.
 - Pixel-based terrain heights, smoothing, flattening and canvas expansion.
 - 2D/3D split view, a curved-world preview and adjustable panels with saved layouts.
 - Sprite props, crossed planes, ground planes and textured boxes.
@@ -24,6 +25,8 @@
 - Three-color shoreline water, animated foam and terrain distance gradients also inherited by grass clusters.
 - Fifteen distinct ambient behaviors with real Unity particle previews in both viewers, up to four sprite variants per zone, natural variation and a global particle budget.
 - Underwater algae animated in the shader on a single plane with ten height segments.
+- Marine schools, explorers, bubbles, suspended particles, caustics, light shafts and distant silhouettes, using your own sprites where required.
+- Lightweight preview controls, smooth camera traversal and optional 360-degree cloud coverage.
 - A separate Tile Prop Studio for constructing reusable tile-based props, editing geometry, and updating exported assets.
 - Blender-inspired modal commands for moving, rotating, scaling, duplicating and extruding selected geometry, with numeric input and undo.
 - Prefab baking and updates that preserve the connected prefab's references.
@@ -65,6 +68,10 @@ Select `Assets/HeartDev/MapWorkshop/Examples/Restricted/NatureMap.asset` and cho
 6. Save the authoring document. Use **Actualizar mapa** to update its destination prefab, or **Conexión con el juego → Exportar copia…** for a separate export.
 
 Detailed Spanish instructions: [Guía de uso](docs/GUIA_ES.md). License summary: [Permisos en español](docs/LICENSE_ES.md).
+
+### Existing map documents
+
+Older maps keep their original format and appearance. To try independent materials, select the document in the Project window and choose **Crear copia con materiales actualizados…** in its Inspector. The copy has its own export destination. See [material migration results and current limits](docs/MapWorkshop-Fase1-Resultados.md).
 
 ### Shortcuts
 
@@ -112,7 +119,7 @@ The published repository contains **no game/campaign integration**. Connect the 
 
 ## Status and limitations
 
-This is a **0.1.0 preview**. Compilation and editor diagnostics were checked in the development project; a clean-project compatibility matrix and Android performance certification have not been completed. No automated test suite is claimed.
+This is a **0.1.0 preview**. Compilation and editor diagnostics were checked in the development project; a clean-project compatibility matrix and Android performance certification have not been completed. Ten focused Edit Mode material/migration tests are included under `MapWorkshop/Tests` and require Unity Test Framework; they do not cover the entire editor.
 
 Terrain is a height surface. Crypt presets create rooms/corridors as a starting base; arbitrary caves, overhangs, navigation and physical water simulation are not implemented. Ambient areas are rectangular; a preset configures effects and still needs an appropriate sprite. The supplied recovery mechanism keeps one copy per document.
 

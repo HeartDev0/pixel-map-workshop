@@ -28,6 +28,7 @@ namespace HeartDev.MapWorkshop
         private Texture2D paintTexture;
         private Color32[] tilePixels;
         private int tileWidth,tileHeight;
+        private float previewModelFocus,previewModelCurvature;
         private PreviewRenderUtility preview;
         private PixelMapBaker.Result model;
         private IMGUIContainer previewPanel;
@@ -36,20 +37,21 @@ namespace HeartDev.MapWorkshop
         private int[] originalHeights;
         private Vector2Int lastPixel;
         private bool painting,previewDirty=true;
+        private bool paintRefreshPending;
         private bool previewRepaintPending=true;
-        private double nextPreviewRepaint,nextModelBuild;
+        private double nextPreviewRepaint,nextModelBuild,nextPaintRefresh;
         private int undoGroup;
         private int patternSourceRevision=-1;
 
         [MenuItem("Tools/HeartDev/Pixel Map Workshop")]
         public static void Open(){var window=GetWindow<PixelMapWorkshopWindow>("Pixel Map Workshop");window.minSize=new Vector2(900,600);window.Show();}
-        public static void OpenDocument(PixelMapDocument map){Open();var window=GetWindow<PixelMapWorkshopWindow>();window.ClearSelection();window.selectedProp=-1;window.document=map;window.CreateGUI();}
-        private void OnEnable(){LoadWorkspacePreferences();Undo.undoRedoPerformed+=OnUndo;EditorApplication.update+=UpdatePreview;wantsMouseMove=true;}
+        public static void OpenDocument(PixelMapDocument map){if(map!=null&&!map.IsSupportedFormat){EditorUtility.DisplayDialog("Formato más reciente","Actualiza Map Workshop para editar este documento.","Aceptar");return;}Open();var window=GetWindow<PixelMapWorkshopWindow>();window.ClearSelection();window.selectedProp=-1;window.document=map;window.CreateGUI();}
+        private void OnEnable(){LoadWorkspacePreferences();Undo.undoRedoPerformed+=OnUndo;EditorApplication.update+=UpdatePreview;PixelMapWorkshopPerformance.Changed+=OnPerformanceSettingsChanged;wantsMouseMove=true;}
         private void OnDisable()
         {
             ReleasePreviewNavigation();ReleasePropGizmo();SaveWorkspacePreferences();DisposeGeneratedBase();
             CancelLayerDrag();EditorApplication.delayCall-=FlushLayerRefresh;layerRefreshQueued=false;layerVisualRefresh=false;
-            EndStroke();Undo.undoRedoPerformed-=OnUndo;EditorApplication.update-=UpdatePreview;
+            EndStroke();Undo.undoRedoPerformed-=OnUndo;EditorApplication.update-=UpdatePreview;PixelMapWorkshopPerformance.Changed-=OnPerformanceSettingsChanged;
             if(paintTexture!=null)DestroyImmediate(paintTexture);
             if(patternPreviewTexture!=null)DestroyImmediate(patternPreviewTexture);
             if(cursorTexture!=null)DestroyImmediate(cursorTexture);
@@ -57,6 +59,11 @@ namespace HeartDev.MapWorkshop
             DisposeAmbientPresetPreview();DisposeAmbientThumbnail();model?.Dispose();model=null;preview?.Cleanup();preview=null;
         }
         private void OnUndo(){selectedProps.Clear();selectedProp=-1;PixelMapPatterns.Clear();BuildInterface();RecordOperation("Deshacer / rehacer");}
+        private void OnPerformanceSettingsChanged()
+        {
+            if(preview!=null)PixelMapWorkshopPerformance.Configure(preview,true);
+            DisposeAmbientPresetPreview();DisposeAmbientThumbnail();InvalidatePreview();
+        }
 
         private void OnLostFocus(){ReleasePreviewNavigation();ReleasePropGizmo();spaceHeld=false;panning=false;CancelLayerDrag();if(lineDragging)CancelPropLine();}
         private void InvalidatePreview(){previewDirty=true;RequestPreviewRepaint();}
@@ -64,17 +71,23 @@ namespace HeartDev.MapWorkshop
         private void UpdatePreview()
         {
             if(EditorApplication.isCompiling||EditorApplication.isUpdating)return;
+            if(painting&&paintRefreshPending&&EditorApplication.timeSinceStartup>=nextPaintRefresh)
+            {
+                paintRefreshPending=false;
+                nextPaintRefresh=EditorApplication.timeSinceStartup+PixelMapWorkshopPerformance.PaintRefreshInterval;
+                RefreshPaint();
+            }
             if(patternSourceRevision!=PixelMapPatterns.SourceRevision&&!LayerInteractionActive)
             {
                 patternSourceRevision=PixelMapPatterns.SourceRevision;ReadTile();RefreshPaint();InvalidatePreview();
             }
             UpdateSafety();UpdateAmbientUI();
-            if(model!=null&&(model.animatedWater||model.animatedGrass||model.animatedClouds||ambientPresetModel!=null)&&EditorApplication.timeSinceStartup>=nextPreviewRepaint)previewRepaintPending=true;
+            if(!painting&&model!=null&&(model.animatedWater||model.animatedGrass||model.animatedClouds||ambientPresetModel!=null)&&EditorApplication.timeSinceStartup>=nextPreviewRepaint)previewRepaintPending=true;
             // UI Toolkit may cache an IMGUIContainer while only the 2D image changes.
-            // Navigation renders at 30 fps; idle effects keep the lighter 10 fps budget.
+            // Keep the preview camera on a fixed 30 fps cadence; idle effects use a 10 fps budget.
             if(PreviewCameraActive)previewRepaintPending=true;
             if(!previewRepaintPending||EditorApplication.timeSinceStartup<nextPreviewRepaint||previewPanel==null||previewPanel.panel==null||workspace==0)return;
-            previewRepaintPending=false;nextPreviewRepaint=EditorApplication.timeSinceStartup+(PreviewCameraActive?1.0/30:.1);
+            previewRepaintPending=false;nextPreviewRepaint=EditorApplication.timeSinceStartup+PixelMapWorkshopPerformance.PreviewRepaintInterval(PreviewCameraActive);
             previewPanel.MarkDirtyRepaint();Repaint();
         }
         private static Label Heading(string text)
@@ -85,13 +98,13 @@ namespace HeartDev.MapWorkshop
         public void CreateGUI(){BuildInterface();}
         private static void AddInt(VisualElement parent,string label,int value,Action<int> setter){var field=new IntegerField(label){value=value};field.RegisterValueChangedCallback(e=>setter(e.newValue));parent.Add(field);}
         private void AddSlider(VisualElement parent,string label,float min,float max,float value,Action<float> setter){var field=new Slider(label,min,max){value=value};field.RegisterValueChangedCallback(e=>{setter(e.newValue);if(curvedPreview)InvalidatePreview();else RequestPreviewRepaint();});parent.Add(field);}
-        private void ChangeMap(Action change,string title="Ajustar mapa"){if(document==null)return;Undo.RecordObject(document,title);change();EditorUtility.SetDirty(document);InvalidatePreview();RefreshPaint();RecordOperation(title);}
+        private void ChangeMap(Action change,string title="Ajustar mapa"){if(document==null||!document.IsSupportedFormat)return;Undo.RecordObject(document,title);change();EditorUtility.SetDirty(document);InvalidatePreview();RefreshPaint();RecordOperation(title);}
         private void CreateMap()
         {
             string path=EditorUtility.SaveFilePanelInProject("Crear mapa","NuevoMapa","asset","Guardar documento del taller");if(string.IsNullOrEmpty(path))return;
             var map=CreateInstance<PixelMapDocument>();map.Initialize(newWidth,newHeight,newPPU);AssetDatabase.CreateAsset(map,path);AssetDatabase.SaveAssets();document=map;CreateGUI();
         }
-        private void Save(){EndStroke();if(document==null)return;EditorUtility.SetDirty(document);AssetDatabase.SaveAssetIfDirty(document);RecordOperation("Guardar documento");}
+        private void Save(){EndStroke();if(document==null||!document.IsSupportedFormat)return;EditorUtility.SetDirty(document);AssetDatabase.SaveAssetIfDirty(document);RecordOperation("Guardar documento");}
         private void Export()
         {
             EndStroke();if(document==null||!document.IsValid)return;
@@ -107,17 +120,18 @@ namespace HeartDev.MapWorkshop
             if(canvas==null)return;
             if(paintTexture!=null)DestroyImmediate(paintTexture);paintTexture=null;
             if(document==null||!document.IsValid){canvas.image=null;return;}
-            paintTexture=PixelMapBaker.PaintTexture(document,heightView);
-            var pixels=paintTexture.GetPixels32();
-            int propIndex=0;foreach(var prop in document.decorations)
+            paintTexture=PixelMapBaker.PaintTexture(document,heightView,pixels=>
             {
-                int markerIndex=propIndex++;if(!document.DecorationVisible(prop))continue;
-                int x=prop.pixel.x,y=prop.pixel.y;
-                var marker=selectedProps.Contains(markerIndex)?new Color32(255,92,81,255):prop.grass?new Color32(25,91,44,255):new Color32(255,221,91,255);
-                for(int d=-1;d<=1;d++){pixels[document.Index(x+d,y)]=marker;pixels[document.Index(x,y+d)]=marker;}
-            }
-            foreach(var prop in document.tileProps)if(document.TilePropVisible(prop))for(int d=-2;d<=2;d++){pixels[document.Index(prop.pixel.x+d,prop.pixel.y)]=new Color32(100,210,225,255);pixels[document.Index(prop.pixel.x,prop.pixel.y+d)]=new Color32(100,210,225,255);}
-            paintTexture.SetPixels32(pixels);paintTexture.Apply(false,false);canvas.image=paintTexture;RefreshCanvasSize();
+                int propIndex=0;foreach(var prop in document.decorations)
+                {
+                    int markerIndex=propIndex++;if(!document.DecorationVisible(prop))continue;
+                    int x=prop.pixel.x,y=prop.pixel.y;
+                    var marker=selectedProps.Contains(markerIndex)?new Color32(255,92,81,255):prop.grass?new Color32(25,91,44,255):new Color32(255,221,91,255);
+                    for(int d=-1;d<=1;d++){pixels[document.Index(x+d,y)]=marker;pixels[document.Index(x,y+d)]=marker;}
+                }
+                foreach(var prop in document.tileProps)if(document.TilePropVisible(prop))for(int d=-2;d<=2;d++){pixels[document.Index(prop.pixel.x+d,prop.pixel.y)]=new Color32(100,210,225,255);pixels[document.Index(prop.pixel.x,prop.pixel.y+d)]=new Color32(100,210,225,255);}
+            });
+            canvas.image=paintTexture;RefreshCanvasSize();
             if(minimap!=null)minimap.image=paintTexture;
             if(status!=null)status.text=$"{document.width} × {document.height} px · {document.decorations.Count} figuras · Ctrl+Z para deshacer";
         }
@@ -131,18 +145,19 @@ namespace HeartDev.MapWorkshop
         }
         private void BeginStrokeAt(Vector2Int pixel)
         {
+            if(document==null||!document.IsSupportedFormat)return;
             if(brush==Brush.Linea){BeginPropLine(pixel);return;}
             if(brush==Brush.TomarColor){PickPaintMaterial(pixel,sampleMaterialFull);return;}
             Undo.IncrementCurrentGroup();undoGroup=Undo.GetCurrentGroup();Undo.SetCurrentGroupName("Pincel de mapa");Undo.RegisterCompleteObjectUndo(document,"Pincel de mapa");
             document.EnsureSurfaces();
             if(brush==Brush.Pintar||brush==Brush.Cesped||brush==Brush.Figura||brush==Brush.BorrarFiguras)if(!PrepareLayer())return;
-            if(brush==Brush.Pintar&&tile!=null&&ActiveLayer!=null&&!ActiveLayer.pattern.enabled){bool empty=true;foreach(var c in ActiveLayer.pixels)if(c.a>0){empty=false;break;}if(empty)CopyBrushPattern(ActiveLayer);}
-            if(brush==Brush.Pintar&&sampledGradient!=null&&sampledGradient.enabled&&ActiveLayer!=null&&(ActiveLayer.gradient==null||!ActiveLayer.gradient.enabled)){bool empty=true;foreach(var c in ActiveLayer.pixels)if(c.a>0){empty=false;break;}if(empty)ActiveLayer.gradient=CopyStyle(sampledGradient);}
+            if(document.FormatVersion==0&&brush==Brush.Pintar&&tile!=null&&ActiveLayer!=null&&!ActiveLayer.pattern.enabled){bool empty=true;foreach(var c in ActiveLayer.pixels)if(c.a>0){empty=false;break;}if(empty)CopyBrushPattern(ActiveLayer);}
+            if(document.FormatVersion==0&&brush==Brush.Pintar&&sampledGradient!=null&&sampledGradient.enabled&&ActiveLayer!=null&&(ActiveLayer.gradient==null||!ActiveLayer.gradient.enabled)){bool empty=true;foreach(var c in ActiveLayer.pixels)if(c.a>0){empty=false;break;}if(empty)ActiveLayer.gradient=CopyStyle(sampledGradient);}
             CaptureStrokeMaterial();
             touched.Clear();occupied.Clear();foreach(var prop in document.decorations)occupied.Add(document.Index(prop.pixel.x,prop.pixel.y));
             BeginPlacementIndex();originalHeights=(int[])document.elevations.Clone();painting=true;lastPixel=pixel;
             if(bucket&&(brush==Brush.Pintar||brush==Brush.Cesped)){FillRegion(lastPixel);EndStroke();}else Stamp(lastPixel);
-            RefreshPaint();InvalidatePreview();
+            paintRefreshPending=false;nextPaintRefresh=EditorApplication.timeSinceStartup+PixelMapWorkshopPerformance.PaintRefreshInterval;RefreshPaint();InvalidatePreview();
         }
         private void PointerMove(PointerMoveEvent e)
         {
@@ -150,15 +165,18 @@ namespace HeartDev.MapWorkshop
             if(lineDragging){UpdatePropLine(hoverPixel);e.StopPropagation();return;}
             if(!painting||document==null)return;
             var pixel=Pixel(e.localPosition);int steps=Mathf.Max(Mathf.Abs(pixel.x-lastPixel.x),Mathf.Abs(pixel.y-lastPixel.y));
+            if(steps<=0){e.StopPropagation();return;}
             // Interpolate strokes so fast mouse movement cannot leave holes.
             for(int i=1;i<=Mathf.Min(steps,4096);i++)Stamp(Vector2Int.RoundToInt(Vector2.Lerp(lastPixel,pixel,(float)i/steps)));
-            lastPixel=pixel;RefreshPaint();InvalidatePreview();e.StopPropagation();
+            lastPixel=pixel;paintRefreshPending=true;previewDirty=true;e.StopPropagation();
         }
         private void PointerUp(PointerUpEvent e){if(lineDragging){FinishPropLine();canvas.ReleasePointer(e.pointerId);e.StopPropagation();return;}if(EndSelection(e)){e.StopPropagation();return;}if(!painting)return;EndStroke();canvas.ReleasePointer(e.pointerId);e.StopPropagation();}
         private void EndStroke()
         {
             if(lineDragging)CancelPropLine();
-            if(!painting)return;painting=false;
+            if(!painting)return;
+            if(paintRefreshPending){paintRefreshPending=false;RefreshPaint();}
+            painting=false;
             if(document!=null)EditorUtility.SetDirty(document);Undo.CollapseUndoOperations(undoGroup);InvalidatePreview();originalHeights=null;
             RecordOperation(bucket?"Rellenar zona":brush==Brush.Cesped?"Pintar césped":brush==Brush.Figura?"Colocar decoración":brush==Brush.Pintar?"Pintar superficie":"Editar "+brush);
         }
@@ -239,21 +257,31 @@ namespace HeartDev.MapWorkshop
             if(Event.current.type!=EventType.Repaint)return;
             try
             {
-                if(preview==null){preview=new PreviewRenderUtility();preview.camera.allowHDR=false;preview.camera.allowMSAA=false;preview.camera.fieldOfView=45;preview.camera.nearClipPlane=.02f;preview.camera.farClipPlane=1000;preview.camera.clearFlags=CameraClearFlags.SolidColor;preview.camera.backgroundColor=new Color(.17f,.22f,.27f);preview.lights[0].type=LightType.Directional;preview.lights[0].transform.rotation=Quaternion.Euler(50,-35,0);preview.lights[0].shadows=LightShadows.Hard;}
+                if(preview==null){preview=new PreviewRenderUtility();preview.camera.allowHDR=false;preview.camera.allowMSAA=false;preview.camera.fieldOfView=45;preview.camera.nearClipPlane=.02f;preview.camera.farClipPlane=1000;preview.camera.clearFlags=CameraClearFlags.SolidColor;preview.camera.backgroundColor=new Color(.17f,.22f,.27f);preview.lights[0].type=LightType.Directional;preview.lights[0].transform.rotation=Quaternion.Euler(50,-35,0);}
+                PixelMapWorkshopPerformance.Configure(preview,true);
                 ConfigurePreviewRenderer();
-                if(previewDirty&&!LayerInteractionActive&&(model==null||EditorApplication.timeSinceStartup>=nextModelBuild))
+                if(previewDirty&&!painting&&!LayerInteractionActive&&(model==null||EditorApplication.timeSinceStartup>=nextModelBuild))
                 {
-                    var updated=PixelMapBaker.Build(document,curvedPreview?previewCurvature:0,viewPosition*document.height/document.pixelsPerUnit);
+                    float buildCurvature=curvedPreview?previewCurvature:0;
+                    float buildFocus=viewPosition*document.height/document.pixelsPerUnit;
+                    var updated=PixelMapBaker.Build(document,buildCurvature,buildFocus,PixelMapWorkshopPerformance.PreviewMeshStep);
+                    PixelMapWorkshopPerformance.Configure(updated.root);
                     try{preview.AddSingleGO(updated.root);}catch{updated.Dispose();throw;}
-                    model?.Dispose();model=updated;DisposeAmbientPresetPreview();CachePickMeshes();previewDirty=false;nextModelBuild=EditorApplication.timeSinceStartup+(PreviewCameraActive?1.0/30:.1);
+                    model?.Dispose();model=updated;previewModelCurvature=buildCurvature;previewModelFocus=buildFocus;DisposeAmbientPresetPreview();CachePickMeshes();previewDirty=false;nextModelBuild=EditorApplication.timeSinceStartup+(PreviewCameraActive?1.0/30:.1);
                     if(status!=null)status.text=$"{document.decorations.Count} figuras · {model.drawGroups} grupos de dibujo · {model.vertices:N0} vértices";
                 }
-                if(previewDirty)RequestPreviewRepaint();
-                UpdateAmbientPresetPreview();
+                if(previewDirty&&!painting)RequestPreviewRepaint();
                 if(model!=null){foreach(var material in model.animatedMaterials)material.SetFloat("_WaterClock",(float)EditorApplication.timeSinceStartup);UpdateAmbientPreview();}
                 float z=viewPosition*document.height;
                 var focus=new Vector3(previewPanX,document.SurfaceHeight(document.width*.5f+previewPanX*document.pixelsPerUnit,z),z/document.pixelsPerUnit);
                 var rotation=Quaternion.Euler(pitch,yaw,0);ApplyPreviewCamera(focus-rotation*Vector3.forward*distance,rotation);
+                float currentFocus=Mathf.Clamp((preview.camera.transform.position+preview.camera.transform.forward*distance).z,0,document.height/(float)document.pixelsPerUnit);
+                if(model!=null&&!Mathf.Approximately(previewModelFocus,currentFocus))
+                {
+                    PixelMapBaker.RecenterCurvature(model,previewModelCurvature,previewModelFocus,currentFocus);
+                    previewModelFocus=currentFocus;
+                }
+                UpdateAmbientPresetPreview(currentFocus);
                 Texture image=null;bool begun=false;
                 try{preview.BeginPreview(rect,GUIStyle.none);begun=true;preview.Render(true);}
                 finally{if(begun)image=preview.EndPreview();}
