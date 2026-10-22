@@ -1,0 +1,7 @@
+{
+  "name": "HeartDev.TilePropStudio.Editor.Tests",
+  "references": ["HeartDev.TilePropStudio.Editor", "HeartDev.TilePropStudio.Runtime", "HeartDev.MapWorkshop.Editor"],
+  "includePlatforms": ["Editor"],
+  "optionalUnityReferences": ["TestAssemblies"],
+  "autoReferenced": false
+}

@@ -95,6 +95,7 @@ Older maps keep their original format and appearance. To try independent materia
 | Vertex / edge / face selection | 1 / 2 / 3 |
 | Move / rotate / scale / extrude | G / R / S / E |
 | Duplicate and move | Shift+D |
+| Paint tile / flood tile region / eyedropper | P / Shift+F / I |
 | Select all / deselect / invert | A / Alt+A / Ctrl+I |
 | Select connected / hide / show | L / H / Alt+H |
 | Delete / command search | X or Delete / F3 |
@@ -102,6 +103,14 @@ Older maps keep their original format and appearance. To try independent materia
 | Confirm / cancel modal operation | Enter / Esc |
 
 During Move, Rotate, Scale, Extrude and Duplicate, constrain to X/Y/Z, type a value, then press Enter. Esc restores the pre-operation geometry. The same operation logic is used by the gizmos. Snapping supports pixels, tiles, grid, vertices and angles.
+
+### Completed Tile Prop Studio authoring phases
+
+The companion now includes plane cuts, welding, boundary bridges, a visual UV editor, reusable linked components, connection sockets, per-instance material variants and tile/pixel painting in 3D. Advanced panels remember their collapsed state; export includes diagnostics, configurable colliders and updates to open map previews.
+
+Read the [Tile Prop Studio guide](Assets/HeartDev/TilePropStudio/README.md) and the [delivery and verification report](docs/TilePropStudio-Delivery-2026-10-22.md). Document format 10 migrates older props and refuses to edit newer formats. Existing exported resource GUIDs are preserved.
+
+![Tile Prop Studio visual UV editor](docs/screenshots/tile-prop-studio-uv.png)
 
 ## Screenshots
 
@@ -119,7 +128,7 @@ The published repository contains **no game/campaign integration**. Connect the 
 
 ## Status and limitations
 
-This is a **0.1.0 preview**. Compilation and editor diagnostics were checked in the development project; a clean-project compatibility matrix and Android performance certification have not been completed. Ten focused Edit Mode material/migration tests are included under `MapWorkshop/Tests` and require Unity Test Framework; they do not cover the entire editor.
+This is a **0.1.0 preview**. Compilation and editor diagnostics were checked in the development project; a clean-project compatibility matrix and Android performance certification have not been completed. Ten focused Edit Mode material/migration tests are included under `MapWorkshop/Tests`; 41 Tile Prop Studio Editor tests cover its authoring and export workflows. Both suites require Unity Test Framework and do not cover the entire editor.
 
 Terrain is a height surface. Crypt presets create rooms/corridors as a starting base; arbitrary caves, overhangs, navigation and physical water simulation are not implemented. Ambient areas are rectangular; a preset configures effects and still needs an appropriate sprite. The supplied recovery mechanism keeps one copy per document.
 

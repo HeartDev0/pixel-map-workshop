@@ -45,6 +45,7 @@ namespace HeartDev.TilePropStudio
         private void SaveEditableAtlases()
         {
             if(IsEditableAtlas(lastPaintedAtlas)&&AssetDatabase.Contains(lastPaintedAtlas))AssetDatabase.SaveAssetIfDirty(lastPaintedAtlas);
+            foreach(var atlas in editedAtlases)if(IsEditableAtlas(atlas)&&AssetDatabase.Contains(atlas))AssetDatabase.SaveAssetIfDirty(atlas);
         }
         private void ResizePalette(){if(palette==null)return;var source=document!=null?document.ActiveTileset:null;var texture=source!=null?source.texture:null;if(document!=null&&document.HasTiles){int x=Mathf.Clamp(tileSelection.x,0,document.Columns-1),y=Mathf.Clamp(tileSelection.y,0,document.Rows-1);tileSelection=new RectInt(x,y,Mathf.Clamp(tileSelection.width,1,Mathf.Min(16,document.Columns-x)),Mathf.Clamp(tileSelection.height,1,Mathf.Min(16,document.Rows-y)));}palette.style.width=texture!=null?texture.width*zoom:200;palette.style.height=texture!=null?texture.height*zoom:180;palette.MarkDirtyRepaint();RefreshLabels();}
         private void DrawPalette()
@@ -55,6 +56,7 @@ namespace HeartDev.TilePropStudio
             for(int x=0;x<=document.Columns;x++)Handles.DrawLine(new Vector3(x*step,0),new Vector3(x*step,rect.height));
             for(int y=0;y<=document.Rows;y++)Handles.DrawLine(new Vector3(0,y*step),new Vector3(rect.width,y*step));
             var selection=new Rect(tileSelection.x*step,tileSelection.y*step,tileSelection.width*step,tileSelection.height*step);Handles.DrawSolidRectangleWithOutline(selection,new Color(1,.75f,.35f,.15f),new Color(1,.8f,.4f));Handles.EndGUI();
+            if(uvEditorMode){DrawUVEditor(rect);return;}
             var e=Event.current;int control=GUIUtility.GetControlID(0x4731,FocusType.Passive,rect);
             Vector2Int TileAt(Vector2 p)=>new Vector2Int(Mathf.Clamp(Mathf.FloorToInt(p.x/step),0,document.Columns-1),Mathf.Clamp(Mathf.FloorToInt(p.y/step),0,document.Rows-1));
             if(e.type==EventType.MouseDown&&e.button==0&&rect.Contains(e.mousePosition))
@@ -64,7 +66,7 @@ namespace HeartDev.TilePropStudio
                     if(!IsEditableAtlas(texture)){if(status!=null)status.text="Crea una copia editable antes de pintar; así no se altera el archivo original.";e.Use();return;}
                     BeginAtlasPixelStroke(texture,control,e.mousePosition);e.Use();return;
                 }
-                paletteDragging=true;paletteControl=control;paletteStart=TileAt(e.mousePosition);GUIUtility.hotControl=control;tileSelection=new RectInt(paletteStart,Vector2Int.one);e.Use();
+                sampledTileUV=null;paletteDragging=true;paletteControl=control;paletteStart=TileAt(e.mousePosition);GUIUtility.hotControl=control;tileSelection=new RectInt(paletteStart,Vector2Int.one);e.Use();
             }
             if(atlasPixelPainting&&(e.type==EventType.MouseDrag||e.type==EventType.MouseUp))
             {
@@ -107,10 +109,10 @@ namespace HeartDev.TilePropStudio
         {
             return new Vector2Int(Mathf.Clamp(tileSelection.x+u%Mathf.Max(1,tileSelection.width),0,Mathf.Max(0,document.Columns-1)),Mathf.Clamp(tileSelection.y+v%Mathf.Max(1,tileSelection.height),0,Mathf.Max(0,document.Rows-1)));
         }
-        private void SetTile(TilePropDocument.Face face,int u=0,int v=0){var source=document.ActiveTileset;face.tilesetId=source!=null?source.id:null;face.tile=ActiveTile(u,v);face.rotation=uvRotation;face.flipX=flipX;face.flipY=flipY;face.uvRect=new Vector4(0,0,1,1);}
+        private void SetTile(TilePropDocument.Face face,int u=0,int v=0){var source=document.ActiveTileset;face.tilesetId=source!=null?source.id:null;face.tile=ActiveTile(u,v);face.rotation=uvRotation;face.flipX=flipX;face.flipY=flipY;face.uvRect=new Vector4(0,0,1,1);face.customUV=sampledTileUV!=null&&source!=null&&source.id==sampledTileSource&&face.tile==sampledTile?(Vector2[])sampledTileUV.Clone():Array.Empty<Vector2>();}
         private void BeginEditStroke()
         {
-            Undo.IncrementCurrentGroup();Undo.SetCurrentGroupName("Construir prop por tiles");Undo.RegisterCompleteObjectUndo(document,"Construir prop por tiles");strokeCells.Clear();faceLookup=document.FaceLookup();
+            Undo.IncrementCurrentGroup();editStrokeUndoGroup=Undo.GetCurrentGroup();Undo.SetCurrentGroupName("Construir prop por tiles");Undo.RegisterCompleteObjectUndo(document,"Construir prop por tiles");strokeCells.Clear();faceLookup=document.FaceLookup();pixelStrokeTextures.Clear();previousPaintTexture=null;previousPaintFace=null;
         }
         private void Stamp(Vector2Int cell)
         {
@@ -118,7 +120,7 @@ namespace HeartDev.TilePropStudio
             for(int v=0;v<Mathf.Max(1,tileSelection.height);v++)for(int u=0;u<Mathf.Max(1,tileSelection.width);u++)
             {
                 var face=TilePropDocument.Quad(workPlane,cell+new Vector2Int(u,v),slice,document.tilePixels,ActiveTile(u,v));var key=new TilePropDocument.FaceKey(face);if(faceLookup==null)faceLookup=document.FaceLookup();faceLookup.TryGetValue(key,out var found);
-                if(found!=null){SetTile(found,u,v);continue;}if(document.faces.Count>=TilePropDocument.FaceLimit){Changed();return;}SetTile(face,u,v);document.faces.Add(face);faceLookup[key]=face;
+                if(found!=null){if(!found.hidden&&!found.locked)SetTile(found,u,v);continue;}if(document.faces.Count>=TilePropDocument.FaceLimit){Changed();return;}SetTile(face,u,v);document.faces.Add(face);faceLookup[key]=face;
             }
             Changed();
         }
@@ -134,15 +136,15 @@ namespace HeartDev.TilePropStudio
         {
             var faces=SelectedFacesForUv();if(faces.Count==0||document==null||!document.HasTiles)return;
             var source=document.ActiveTileset;var tile=new Vector2Int(tileSelection.x,tileSelection.y);var size=new Vector2Int(Mathf.Max(1,tileSelection.width),Mathf.Max(1,tileSelection.height));
-            Edit(()=>{foreach(var face in faces){SetTile(face);face.tile=tile;face.uvRect=new Vector4(0,0,size.x,size.y);}},"Asignar región del atlas");
+            Edit(()=>{foreach(var face in faces){SetTile(face);face.tile=tile;face.uvRect=new Vector4(0,0,size.x,size.y);face.customUV=Array.Empty<Vector2>();}},"Asignar región del atlas");
         }
         private void RotateSelectedUv()
         {
-            var faces=SelectedFacesForUv();if(faces.Count==0)return;Edit(()=>{foreach(var face in faces)face.rotation=(face.rotation+1)%4;},"Girar UV seleccionada");
+            var faces=SelectedFacesForUv();if(faces.Count==0)return;Edit(()=>{foreach(var face in faces)TilePropUV.Rotate(face);},"Girar UV seleccionada");
         }
         private void FlipSelectedUv(bool horizontal)
         {
-            var faces=SelectedFacesForUv();if(faces.Count==0)return;Edit(()=>{foreach(var face in faces){if(horizontal)face.flipX=!face.flipX;else face.flipY=!face.flipY;}},horizontal?"Reflejar UV horizontal":"Reflejar UV vertical");
+            var faces=SelectedFacesForUv();if(faces.Count==0)return;Edit(()=>{foreach(var face in faces)TilePropUV.Flip(face,horizontal);},horizontal?"Reflejar UV horizontal":"Reflejar UV vertical");
         }
         private void MarkReplacementSource()
         {
@@ -154,7 +156,7 @@ namespace HeartDev.TilePropStudio
         {
             if(document==null||string.IsNullOrEmpty(replaceSourceTilesetId)){if(status!=null)status.text="Primero marca el tile de una cara seleccionada.";return;}
             var source=document.ActiveTileset;if(source==null||source.texture==null||!document.HasTiles){if(status!=null)status.text="Elige el tileset de reemplazo.";return;}
-            var replacement=ActiveTile();var affected=document.faces.Where(face=>face!=null&&face.tilesetId==replaceSourceTilesetId&&face.tile==replaceSourceTile&&!face.locked).ToList();
+            var replacement=ActiveTile();var limit=PaintLimit();var affected=document.faces.Where(face=>face!=null&&face.tilesetId==replaceSourceTilesetId&&face.tile==replaceSourceTile&&!face.locked&&!face.hidden&&(limit==null||limit.Contains(face.id))).ToList();
             if(affected.Count==0){if(status!=null)status.text="No hay caras sin bloquear con ese tile.";return;}
             Edit(()=>{foreach(var face in affected){face.tilesetId=source.id;face.tile=replacement;}}, "Reemplazar tile en el prop");
             if(status!=null)status.text="Tile reemplazado en "+affected.Count+" caras.";

@@ -7,11 +7,13 @@ using UnityEngine;
 namespace HeartDev.TilePropStudio
 {
     public enum TileWorkPlane { SueloXZ,FrenteXY,LateralZY }
+    public enum TilePropCollider { Ninguno,Caja,Malla,Convexo }
     [CreateAssetMenu(menuName="HeartDev/Tile Prop Studio/Documento de prop",fileName="NuevoProp")]
     public sealed class TilePropDocument : ScriptableObject
     {
         public const int FaceLimit=8192;
-        public const int CurrentFormatVersion=7;
+        public const int CurrentFormatVersion=10;
+        public bool IsSupportedFormat=>formatVersion>=0&&formatVersion<=CurrentFormatVersion;
         [Serializable] public sealed class TilesetSource
         {
             public string id=Guid.NewGuid().ToString("N");
@@ -31,6 +33,8 @@ namespace HeartDev.TilePropStudio
             public bool hidden,locked;
             public bool flipDiagonal;
             public Vector4 uvRect=new Vector4(0,0,1,1);
+            // Optional explicit coordinates in tile units; older faces keep the affine layout.
+            public Vector2[] customUV=Array.Empty<Vector2>();
             public Vector3Int[] Corners=>new[]{a,b,c,d};
         }
         [Serializable] public sealed class FaceGroup
@@ -45,15 +49,27 @@ namespace HeartDev.TilePropStudio
             public Vector3Int positionPixels;
             public Vector3 rotationEuler;
             public Vector3 scale=Vector3.one;
+            public string variantName;
+            public List<MaterialOverride> appearance=new List<MaterialOverride>();
+        }
+        [Serializable] public sealed class MaterialOverride { public Material source,replacement; }
+        [Serializable] public sealed class ConnectionPoint
+        {
+            public string id=Guid.NewGuid().ToString("N"),name="Conexión";
+            public Vector3Int positionPixels;
+            public Vector3 rotationEuler;
         }
         [SerializeField] public int formatVersion=CurrentFormatVersion;
         public Texture2D tileset;
         public int tilePixels=16,pixelsPerUnit=32;
         public bool generateMeshCollider;
+        public TilePropCollider colliderMode;
+        public TilePropCollider EffectiveCollider=>generateMeshCollider&&colliderMode==TilePropCollider.Ninguno?TilePropCollider.Malla:colliderMode;
         public List<TilesetSource> tilesets=new List<TilesetSource>();
         public string activeTilesetId;
         public List<FaceGroup> groups=new List<FaceGroup>();
         public List<ComponentInstance> components=new List<ComponentInstance>();
+        public List<ConnectionPoint> connectionPoints=new List<ConnectionPoint>();
         public Vector3Int pivotPixels;
         public List<Face> faces=new List<Face>();
         public GameObject exportedPrefab;
@@ -71,6 +87,7 @@ namespace HeartDev.TilePropStudio
         public bool HasTiles=>ActiveTileset!=null&&ActiveTileset.texture!=null&&Columns>0&&Rows>0;
         public bool EnsureTilesets()
         {
+            if(!IsSupportedFormat)return false;
             bool changed=false;if(tilesets==null){tilesets=new List<TilesetSource>();changed=true;}
             if(tilesets.Count==0||!tilesets.Any(source=>source!=null))
             {
@@ -103,12 +120,17 @@ namespace HeartDev.TilePropStudio
         {
             EnsureTilesets();if(texture==null)throw new ArgumentNullException(nameof(texture));
             if(tilesets.Any(source=>source!=null&&source.texture==texture))throw new InvalidOperationException("Ese tileset ya está agregado al documento.");
+            if(tilesets.Count==1&&tilesets[0]!=null&&tilesets[0].texture==null&&(faces==null||faces.Count==0))
+            {
+                var primary=tilesets[0];primary.texture=texture;primary.displayName=string.IsNullOrWhiteSpace(displayName)?texture.name:displayName;activeTilesetId=primary.id;tileset=texture;return primary.id;
+            }
             var source=new TilesetSource{displayName=string.IsNullOrWhiteSpace(displayName)?texture.name:displayName,texture=texture,tilePixels=Mathf.Max(1,tilePixels)};
             tilesets.Add(source);activeTilesetId=source.id;if(tilesets.Count==1)tileset=texture;return source.id;
         }
         public void SetActiveTileset(string id){if(GetTileset(id)!=null)activeTilesetId=id;}
         public bool EnsureGroups()
         {
+            if(!IsSupportedFormat)return false;
             if(groups==null){groups=new List<FaceGroup>();return true;}bool changed=false;var ids=new HashSet<string>();
             foreach(var group in groups)
             {
@@ -124,11 +146,12 @@ namespace HeartDev.TilePropStudio
         }
         public bool EnsureComponents()
         {
+            if(!IsSupportedFormat)return false;
             if(components==null){components=new List<ComponentInstance>();return true;}bool changed=false;var ids=new HashSet<string>();
             foreach(var instance in components)
             {
                 if(instance==null)continue;if(string.IsNullOrEmpty(instance.id)||!ids.Add(instance.id)){instance.id=Guid.NewGuid().ToString("N");ids.Add(instance.id);changed=true;}
-                if(instance.scale==Vector3.zero){instance.scale=Vector3.one;changed=true;}
+                if(formatVersion<9&&instance.scale==Vector3.zero){instance.scale=Vector3.one;changed=true;}
             }
             return changed;
         }
@@ -137,11 +160,28 @@ namespace HeartDev.TilePropStudio
             if(formatVersion>=CurrentFormatVersion)return false;
             if(faces==null)faces=new List<Face>();
             if(formatVersion<3)foreach(var face in faces)if(face!=null){face.hidden=false;face.locked=false;if(face.uvRect.z<=face.uvRect.x||face.uvRect.w<=face.uvRect.y)face.uvRect=new Vector4(0,0,1,1);}
+            if(formatVersion<10&&generateMeshCollider)colliderMode=TilePropCollider.Malla;
+            if(connectionPoints==null)connectionPoints=new List<ConnectionPoint>();
             EnsureTilesets();EnsureGroups();EnsureComponents();formatVersion=CurrentFormatVersion;return true;
         }
         public Bounds PixelBounds
         {
-            get {var visible=faces.FindAll(face=>face!=null&&!face.hidden);if(visible.Count==0)return new Bounds(Vector3.zero,Vector3.one*tilePixels);var bounds=new Bounds(visible[0].a,Vector3.zero);foreach(var face in visible){bounds.Encapsulate(face.a);bounds.Encapsulate(face.b);bounds.Encapsulate(face.c);bounds.Encapsulate(face.d);}return bounds;}
+            get
+            {
+                var bounds=new Bounds();bool any=false;void Include(Vector3 point){if(!any){bounds=new Bounds(point,Vector3.zero);any=true;}else bounds.Encapsulate(point);}
+                if(faces!=null)foreach(var face in faces)if(face!=null&&!face.hidden)foreach(var point in face.Corners)Include(point);
+                if(components!=null)foreach(var instance in components)
+                {
+                    if(instance?.prefab==null)continue;var metadata=instance.prefab.GetComponent<TilePropAsset>();float ppu=metadata!=null?Mathf.Max(1,metadata.pixelsPerUnit):pixelsPerUnit;
+                    var transform=Matrix4x4.TRS(instance.positionPixels,Quaternion.Euler(instance.rotationEuler),instance.scale*ppu)*instance.prefab.transform.worldToLocalMatrix;
+                    foreach(var filter in instance.prefab.GetComponentsInChildren<MeshFilter>(true))
+                    {
+                        if(filter.sharedMesh==null)continue;var matrix=transform*filter.transform.localToWorldMatrix;var b=filter.sharedMesh.bounds;
+                        for(int i=0;i<8;i++)Include(matrix.MultiplyPoint3x4(b.center+Vector3.Scale(b.extents,new Vector3((i&1)==0?-1:1,(i&2)==0?-1:1,(i&4)==0?-1:1))));
+                    }
+                }
+                return any?bounds:new Bounds(Vector3.zero,Vector3.one*tilePixels);
+            }
         }
         public static Face Quad(TileWorkPlane plane,Vector2Int cell,int slice,int size,Vector2Int tile)
         {

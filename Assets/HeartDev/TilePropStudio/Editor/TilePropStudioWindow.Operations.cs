@@ -143,7 +143,7 @@ namespace HeartDev.TilePropStudio
 
         private static TilePropDocument.Face CloneFace(TilePropDocument.Face source)
         {
-            return new TilePropDocument.Face{a=source.a,b=source.b,c=source.c,d=source.d,tile=source.tile,tilesetId=source.tilesetId,groupId=source.groupId,rotation=source.rotation,flipX=source.flipX,flipY=source.flipY,hidden=source.hidden,locked=source.locked,flipDiagonal=source.flipDiagonal,uvRect=source.uvRect};
+            return TilePropMeshTools.Copy(source);
         }
 
         private bool CreateModalExtrusion()
@@ -153,9 +153,9 @@ namespace HeartDev.TilePropStudio
                 var sources=document.faces.Where(face=>face!=null&&!face.hidden&&!face.locked&&selected.Contains(face.id)).ToList();
                 if(sources.Count==0)return false;
                 Vector3 normal=FaceNormal(sources[0]);
-                if(sources.Any(face=>Vector3.Dot(normal,FaceNormal(face))<.98f)){if(status!=null)status.text="Extruye un grupo de caras coplanares a la vez.";return false;}
+                if(sources.Any(face=>Vector3.Dot(normal,FaceNormal(face))<.98f||Mathf.Abs(Vector3.Dot(normal,face.a-sources[0].a))>.05f)){if(status!=null)status.text="Extruye un grupo de caras coplanares a la vez.";return false;}
                 var edges=new Dictionary<EdgeKey,BoundaryEdge>();
-                foreach(var face in sources){var points=face.Corners;for(int i=0;i<4;i++){var key=new EdgeKey(points[i],points[(i+1)%4]);if(edges.TryGetValue(key,out var existing))existing.uses++;else edges.Add(key,new BoundaryEdge{source=face,a=points[i],b=points[(i+1)%4],uses=1});}}
+                foreach(var face in sources){var points=face.Corners;for(int i=0;i<4;i++){if(points[i]==points[(i+1)%4])continue;var key=new EdgeKey(points[i],points[(i+1)%4]);if(edges.TryGetValue(key,out var existing))existing.uses++;else edges.Add(key,new BoundaryEdge{source=face,a=points[i],b=points[(i+1)%4],uses=1});}}
                 var boundary=edges.Values.Where(edge=>edge.uses==1).ToList();
                 if(boundary.Count==0||document.faces.Count+sources.Count+boundary.Count>TilePropDocument.FaceLimit){if(status!=null)status.text="La extrusión no tiene un borde abierto o superaría el límite de caras.";return false;}
                 var tops=sources.Select(CloneFace).ToList();var sides=new List<TilePropDocument.Face>(boundary.Count);

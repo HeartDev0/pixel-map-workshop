@@ -57,13 +57,13 @@ namespace HeartDev.TilePropStudio
             ClearComponentSelection();
             if (document == null) { SelectionChanged(); return; }
             if (componentMode == ComponentMode.Objeto)
-                foreach (var objectFace in document.faces) if(objectFace!=null&&!objectFace.locked)selected.Add(objectFace.id);
+            { foreach (var objectFace in document.faces) if(objectFace!=null&&!objectFace.locked)selected.Add(objectFace.id); }
             else if (componentMode == ComponentMode.Caras)
-                foreach (var selectedFace in document.faces) if(selectedFace!=null&&!selectedFace.hidden&&!selectedFace.locked)selected.Add(selectedFace.id);
+            { foreach (var selectedFace in document.faces) if(selectedFace!=null&&!selectedFace.hidden&&!selectedFace.locked)selected.Add(selectedFace.id); }
             else if (componentMode == ComponentMode.Vertices)
-                foreach (var vertexFace in document.faces) if(vertexFace!=null&&!vertexFace.hidden&&!vertexFace.locked)foreach (var point in vertexFace.Corners) selectedVertices.Add(point);
+            { foreach (var vertexFace in document.faces) if(vertexFace!=null&&!vertexFace.hidden&&!vertexFace.locked)foreach (var point in vertexFace.Corners) selectedVertices.Add(point); }
             else
-                foreach (var edgeFace in document.faces) if(edgeFace!=null&&!edgeFace.hidden&&!edgeFace.locked)foreach (var edge in FaceEdges(edgeFace)) selectedEdges.Add(edge);
+            { foreach (var edgeFace in document.faces) if(edgeFace!=null&&!edgeFace.hidden&&!edgeFace.locked)foreach (var edge in FaceEdges(edgeFace)) selectedEdges.Add(edge); }
             SelectionChanged();
         }
 

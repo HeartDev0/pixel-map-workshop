@@ -2,6 +2,14 @@
 
 ## Unreleased — 2026-10-22
 
+- Complete Tile Prop Studio authoring phases: pixel-grid plane cuts, bounded welding, boundary bridges, UV-preserving subdivision and geometry cleanup.
+- Add explicit corner UVs, visual UV handle editing, density correction and continuity stitching across compatible faces.
+- Add component extraction, source-linked updates, connection sockets and material variants without copying source geometry.
+- Add connected tile flood fill, exact tile/UV sampling, selection-aware replacement and clipped pixel painting directly in 3D on editable atlas copies.
+- Add persistent collapsible panels, responsive numeric fields, preflight diagnostics, configurable colliders and format 10 migration/read-only protection for future documents.
+- Optimize exported vertex attributes/materials, omit zero-area triangles, preserve collider mesh references and notify open map previews after prop updates.
+- Include 41 passing Tile Prop Studio Editor tests, real viewport interaction verification, an updated guide and a captured UV-editor screenshot.
+
 - Keep camera traversal responsive by recentering existing preview geometry; preserve upright props while the curvature focus moves.
 - Add configurable 360-degree cloud coverage while preserving the original cloud patch and UV layout.
 - Initialize paused marine particle buffers before upload, support presentation curvature for swarms, and exclude animated algae from rigid caustic overlays.

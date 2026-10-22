@@ -16,6 +16,13 @@ namespace HeartDev.MapWorkshop
         [SerializeField] private string selectedTilePropId;
         private Action refreshTilePropPanel;
         private Toggle tilePropPlacingToggle;
+        private void OnTilePropExported(GameObject prefab)
+        {
+            if(document==null||prefab==null)return;string updated=AssetDatabase.GetAssetPath(prefab);
+            if(!document.tileProps.Any(prop=>prop?.prefab!=null&&AssetDatabase.GetDependencies(AssetDatabase.GetAssetPath(prop.prefab),true).Contains(updated)))return;
+            // Curved previews own mesh copies: rebuild them once after the complete export.
+            rootVisualElement.schedule.Execute(()=>{if(document==null)return;InvalidatePreview();refreshTilePropPanel?.Invoke();RequestPreviewRepaint();}).ExecuteLater(80);
+        }
         private void LeaveTilePropPlacement(){placeTileProps=false;tilePropPlacingToggle?.SetValueWithoutNotify(false);}
         private void BuildTilePropControls(VisualElement parent)
         {

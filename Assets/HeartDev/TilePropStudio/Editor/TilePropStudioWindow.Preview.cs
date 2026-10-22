@@ -15,12 +15,13 @@ namespace HeartDev.TilePropStudio
         [SerializeField] private float cameraDistance=4,cameraYaw=-35,cameraPitch=30;
         private Vector3 cameraTarget;
         private bool cameraReady,viewDragging,editingStroke;
+        private string previewError;
         private int viewControl,dragButton;
         private Vector2Int hoverCell;
         private bool hover;
         private double nextRepaint;
         private void Tick(){if(EditorApplication.isCompiling||EditorApplication.isUpdating||viewport==null)return;if((viewDragging||dirtyPreview&&!editingStroke)&&EditorApplication.timeSinceStartup>=nextRepaint){nextRepaint=EditorApplication.timeSinceStartup+PixelMapWorkshopPerformance.PreviewRepaintInterval(viewDragging);viewport.MarkDirtyRepaint();Repaint();}}
-        private void ReleaseViewInput(){bool finishedStroke=editingStroke;if(atlasPixelPainting)EndAtlasPixelStroke();if(paletteDragging&&GUIUtility.hotControl==paletteControl)GUIUtility.hotControl=0;if(viewDragging&&GUIUtility.hotControl==viewControl)GUIUtility.hotControl=0;if(gizmoDragging)EndGizmoDrag();viewDragging=editingStroke=selecting=selectionBox=false;paletteDragging=false;if(finishedStroke){RefreshLabels();viewport?.MarkDirtyRepaint();Repaint();}}
+        private void ReleaseViewInput(){bool finishedStroke=editingStroke;if(atlasPixelPainting)EndAtlasPixelStroke();if(uvDragging)FinishUVDrag(false);if(paletteDragging&&GUIUtility.hotControl==paletteControl)GUIUtility.hotControl=0;if(viewDragging&&GUIUtility.hotControl==viewControl)GUIUtility.hotControl=0;if(gizmoDragging)EndGizmoDrag();viewDragging=editingStroke=selecting=selectionBox=false;paletteDragging=false;if(finishedStroke){Undo.CollapseUndoOperations(editStrokeUndoGroup);SaveEditableAtlases();RefreshLabels();viewport?.MarkDirtyRepaint();Repaint();}}
         private void EnsurePreview()
         {
             if(preview!=null)return;preview=new PreviewRenderUtility();var camera=preview.camera;camera.fieldOfView=40;camera.nearClipPlane=.01f;camera.farClipPlane=1000;camera.allowHDR=false;camera.allowMSAA=false;camera.clearFlags=CameraClearFlags.SolidColor;camera.backgroundColor=new Color(.14f,.17f,.20f);preview.lights[0].intensity=1.1f;preview.lights[0].transform.rotation=Quaternion.Euler(50,-35,0);preview.lights[1].intensity=.45f;
@@ -63,11 +64,11 @@ namespace HeartDev.TilePropStudio
             try
             {
                 EnsurePreview();PixelMapWorkshopPerformance.Configure(preview);HandleViewInput(rect);
-                if(Event.current.type!=EventType.Repaint)return;RebuildPreview();if(!cameraReady)FrameModel();var rotation=Quaternion.Euler(cameraPitch,cameraYaw,0);preview.camera.orthographic=orthographicView;preview.camera.orthographicSize=Mathf.Max(.01f,cameraDistance*Mathf.Tan(preview.camera.fieldOfView*.5f*Mathf.Deg2Rad));preview.camera.transform.SetPositionAndRotation(cameraTarget-rotation*Vector3.forward*cameraDistance,rotation);
+                if(Event.current.type!=EventType.Repaint)return;RebuildPreview();if(previewError!=null){GUI.Label(rect,previewError);return;}if(!cameraReady)FrameModel();var rotation=Quaternion.Euler(cameraPitch,cameraYaw,0);preview.camera.orthographic=orthographicView;preview.camera.orthographicSize=Mathf.Max(.01f,cameraDistance*Mathf.Tan(preview.camera.fieldOfView*.5f*Mathf.Deg2Rad));preview.camera.transform.SetPositionAndRotation(cameraTarget-rotation*Vector3.forward*cameraDistance,rotation);
                 preview.BeginPreview(rect,GUIStyle.none);Texture image=null;try{preview.Render(true);}finally{image=preview.EndPreview();}if(image!=null){image.filterMode=FilterMode.Point;GUI.DrawTexture(rect,image,ScaleMode.StretchToFill,false);}DrawGuides(rect);DrawModalOperationHud(rect);
             }
             catch(ExitGUIException){throw;}
-            catch(Exception e){GUI.Label(rect,"No se pudo mostrar el prop: "+e.Message);}
+            catch(Exception e){dirtyPreview=false;previewError="No se pudo mostrar el prop: "+e.Message;GUI.Label(rect,previewError);}
         }
         private Vector3 World(Vector3 p)=>(p-document.pivotPixels)/Mathf.Max(1,document.pixelsPerUnit);
         private Vector2 Screen(Rect rect,Vector3 p){var v=preview.camera.WorldToViewportPoint(World(p));return new Vector2(rect.x+v.x*rect.width,rect.y+(1-v.y)*rect.height);}
@@ -87,7 +88,7 @@ namespace HeartDev.TilePropStudio
                 if(face==null||face.hidden)continue;
                 var a=World(face.a);var b=World(face.b);var c=World(face.c);var d=World(face.d);
                 float Triangle(Vector3 x,Vector3 y,Vector3 z){var edge1=y-x;var edge2=z-x;var p=Vector3.Cross(ray.direction,edge2);float det=Vector3.Dot(edge1,p);if(Mathf.Abs(det)<.000001f)return float.PositiveInfinity;float inv=1/det;var t=ray.origin-x;float u=Vector3.Dot(t,p)*inv;if(u<0||u>1)return float.PositiveInfinity;var q=Vector3.Cross(t,edge1);float v=Vector3.Dot(ray.direction,q)*inv;if(v<0||u+v>1)return float.PositiveInfinity;float f=Vector3.Dot(edge2,q)*inv;return f>0?f:float.PositiveInfinity;}
-                float distance=Mathf.Min(Triangle(a,b,c),Triangle(a,c,d));if(distance<nearest){nearest=distance;closest=face;}if(distance>0&&distance>deepest){deepest=distance;farthest=face;}
+                float distance=face.flipDiagonal?Mathf.Min(Triangle(a,b,d),Triangle(b,c,d)):Mathf.Min(Triangle(a,b,c),Triangle(a,c,d));if(distance<nearest){nearest=distance;closest=face;}if(!float.IsInfinity(distance)&&distance>0&&distance>deepest){deepest=distance;farthest=face;}
             }
             return throughSelection&&farthest!=null?farthest:closest;
         }
@@ -113,8 +114,10 @@ namespace HeartDev.TilePropStudio
                     }
                     else
                     {
+                        if(tool==Tool.TomarTile){SampleTile(PickFace(rect,e.mousePosition));ReleaseViewInput();e.Use();return;}
                         editingStroke=true;BeginEditStroke();
-                        if(tool==Tool.Colocar&&hover)Stamp(hoverCell);else{var hit=PickFace(rect,e.mousePosition);if(hit!=null){if(tool==Tool.Borrar){document.faces.Remove(hit);selected.Remove(hit.id);}else SetTile(hit);Changed();}}
+                        if(tool==Tool.Colocar&&hover)Stamp(hoverCell);else ApplyFaceTool(rect,e.mousePosition);
+                        if(tool==Tool.Rellenar)ReleaseViewInput();
                     }
                 }
                 e.Use();return;
@@ -135,7 +138,7 @@ namespace HeartDev.TilePropStudio
                     {
                         int steps=Mathf.Min(256,Mathf.Max(Mathf.Abs(cell.x-hoverCell.x),Mathf.Abs(cell.y-hoverCell.y)));for(int i=1;i<=Mathf.Max(1,steps);i++)Stamp(Vector2Int.RoundToInt(Vector2.Lerp(hoverCell,cell,i/(float)Mathf.Max(1,steps))));hoverCell=cell;
                     }
-                    else{var hit=PickFace(rect,e.mousePosition);if(hit!=null){if(tool==Tool.Borrar){document.faces.Remove(hit);selected.Remove(hit.id);}else SetTile(hit);Changed();}}
+                    else ApplyFaceTool(rect,e.mousePosition);
                 }
                 viewport.MarkDirtyRepaint();e.Use();return;
             }
@@ -165,6 +168,12 @@ namespace HeartDev.TilePropStudio
                 DrawComponentSelection(rect);
                 DrawSelectionBox(rect);
                 var pivot=(Vector3)document.pivotPixels;Line(pivot,pivot+Vector3.right*size,new Color(1,.35f,.3f));Line(pivot,pivot+Vector3.up*size,new Color(.4f,1,.5f));Line(pivot,pivot+Vector3.forward*size,new Color(.4f,.65f,1));
+                if(document.connectionPoints!=null)foreach(var socket in document.connectionPoints)
+                {
+                    if(socket==null)continue;var point=(Vector3)socket.positionPixels;var color=socket.id==activeConnectionId?new Color(1,.8f,.3f):new Color(.4f,.95f,.8f);
+                    Line(point-Vector3.right*2,point+Vector3.right*2,color);Line(point-Vector3.up*2,point+Vector3.up*2,color);Line(point,point+Quaternion.Euler(socket.rotationEuler)*Vector3.forward*size*.5f,color);
+                    if(preview.camera.WorldToViewportPoint(World(point)).z>0){var screen=Screen(rect,point)-rect.position;GUI.Label(new Rect(screen.x+6,screen.y-20,160,20),socket.name);}
+                }
             }
             finally{Handles.EndGUI();GUI.EndClip();}
         }

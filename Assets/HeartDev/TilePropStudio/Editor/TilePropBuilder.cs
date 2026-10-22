@@ -28,6 +28,7 @@ namespace HeartDev.TilePropStudio
         }
         internal static Model Build(TilePropDocument doc)
         {
+            if(doc==null||!doc.IsSupportedFormat)throw new InvalidOperationException("Formato de prop no compatible con esta versión de Tile Prop Studio.");
             doc.EnsureTilesets();doc.EnsureComponents();ValidateComponents(doc);
             if(doc.faces.Count>TilePropDocument.FaceLimit)throw new InvalidOperationException("Máximo de "+TilePropDocument.FaceLimit+" caras por prop.");
             var model=new Model();try
@@ -36,13 +37,14 @@ namespace HeartDev.TilePropStudio
                 var faceSources=new Dictionary<string,TilePropDocument.TilesetSource>();
                 foreach(var face in visibleFaces)
                 {
-                    var source=doc.GetTileset(face.tilesetId)??doc.ActiveTileset;
+                    var source=doc.GetTileset(face.tilesetId);
                     if(source==null||source.texture==null)throw new InvalidOperationException("La cara tiene un tileset sin imagen asignada.");
                     faceSources[face.id]=source;
                 }
                 var usedSourceIds=new HashSet<string>(faceSources.Values.Select(source=>source.id));
-                var sources=doc.tilesets.Where(source=>source!=null&&usedSourceIds.Contains(source.id)).ToList();
-                var submeshBySource=new Dictionary<string,int>();for(int i=0;i<sources.Count;i++)submeshBySource[sources[i].id]=i;
+                var used=doc.tilesets.Where(source=>source!=null&&usedSourceIds.Contains(source.id)).ToList();
+                var sources=used.GroupBy(source=>source.texture).Select(group=>group.First()).ToList();
+                var submeshBySource=new Dictionary<string,int>();foreach(var source in used)submeshBySource[source.id]=sources.FindIndex(candidate=>candidate.texture==source.texture);
                 var vertices=new List<Vector3>();var uv=new List<Vector2>();var triangles=Enumerable.Range(0,sources.Count).Select(_=>new List<int>()).ToList();float ppu=Mathf.Max(1,doc.pixelsPerUnit);
                 foreach(var face in visibleFaces)
                 {
@@ -52,10 +54,7 @@ namespace HeartDev.TilePropStudio
                     vertices.Add(((Vector3)face.a-doc.pivotPixels)/ppu);vertices.Add(((Vector3)face.b-doc.pivotPixels)/ppu);vertices.Add(((Vector3)face.c-doc.pivotPixels)/ppu);vertices.Add(((Vector3)face.d-doc.pivotPixels)/ppu);
                     for(int i=0;i<4;i++)
                     {
-                        int corner=(i+face.rotation%4+4)%4;Vector2 p=corner==0?Vector2.zero:corner==1?Vector2.right:corner==2?Vector2.one:Vector2.up;
-                        if(face.flipX)p.x=1-p.x;if(face.flipY)p.y=1-p.y;
-                        var region=face.uvRect.z>face.uvRect.x&&face.uvRect.w>face.uvRect.y?face.uvRect:new Vector4(0,0,1,1);
-                        float u=region.x+p.x*(region.z-region.x),v=region.y+p.y*(region.w-region.y);
+                        var p=TilePropUV.Corner(face,i);float u=p.x,v=p.y;
                         uv.Add(new Vector2((face.tile.x+u)*tilePixels/texture.width,1-(face.tile.y+1-v)*tilePixels/texture.height));
                     }
                     if(face.flipDiagonal)triangles[submesh].AddRange(new[]{n,n+1,n+3,n+1,n+2,n+3});else triangles[submesh].AddRange(new[]{n,n+1,n+2,n,n+2,n+3});
@@ -70,13 +69,13 @@ namespace HeartDev.TilePropStudio
                     model.tilesets.Add(source);
                 }
                 model.root=new GameObject(doc.name,typeof(MeshFilter),typeof(MeshRenderer)){hideFlags=HideFlags.HideAndDontSave};model.root.GetComponent<MeshFilter>().sharedMesh=model.mesh;model.root.GetComponent<MeshRenderer>().sharedMaterials=model.materials.ToArray();model.root.GetComponent<MeshRenderer>().shadowCastingMode=ShadowCastingMode.TwoSided;
-                if(doc.generateMeshCollider){var collider=model.root.AddComponent<MeshCollider>();collider.sharedMesh=model.mesh;}
                 if(doc.components!=null)foreach(var instance in doc.components)
                 {
                     if(instance==null)continue;if(instance.prefab==null)throw new InvalidOperationException("Hay una instancia de componente sin prefab asignado.");
                     var child=PrefabUtility.InstantiatePrefab(instance.prefab) as GameObject;if(child==null)throw new InvalidOperationException("No se pudo crear una instancia del componente "+instance.prefab.name+".");
                     var componentMetadata=child.GetComponent<TilePropAsset>();float densityScale=componentMetadata!=null?Mathf.Max(1,componentMetadata.pixelsPerUnit)/ppu:1f;
                     child.transform.SetParent(model.root.transform,false);child.transform.localPosition=((Vector3)instance.positionPixels-doc.pivotPixels)/ppu;child.transform.localRotation=Quaternion.Euler(instance.rotationEuler);child.transform.localScale=Vector3.Scale(instance.scale,Vector3.one*densityScale);
+                    TilePropComponents.ApplyAppearance(child,instance);
                 }
                 return model;
             }
@@ -109,11 +108,13 @@ namespace HeartDev.TilePropStudio
         }
         internal static string Export(TilePropDocument doc,string path)
         {
-            doc.EnsureTilesets();
-            if(doc.faces==null||doc.tilesets==null||doc.faces.Count==0||!doc.faces.Any(face=>face!=null&&!face.hidden))throw new InvalidOperationException("Asigna tilesets y deja al menos una cara visible antes de exportar.");
+            if(doc==null||!doc.IsSupportedFormat)throw new InvalidOperationException("Formato de prop no compatible.");
+            doc.UpgradeFormatIfNeeded();doc.EnsureTilesets();doc.EnsureComponents();
+            var errors=TilePropDiagnostics.Inspect(doc).Where(issue=>issue.error).ToList();if(errors.Count>0)throw new InvalidOperationException(string.Join("\n",errors.Take(8).Select(issue=>issue.message)));
+            if(doc.faces==null||doc.tilesets==null||!doc.faces.Any(face=>face!=null&&!face.hidden)&&!(doc.components!=null&&doc.components.Any(c=>c!=null)))throw new InvalidOperationException("Deja al menos una cara visible o un componente enlazado antes de exportar.");
             foreach(var face in doc.faces)if(face!=null&&!face.hidden)
             {
-                var source=doc.GetTileset(face.tilesetId)??doc.ActiveTileset;
+                var source=doc.GetTileset(face.tilesetId);
                 if(source==null||source.texture==null)throw new InvalidOperationException("Asigna una imagen a todos los tilesets usados antes de exportar.");
                 int columns=source.texture.width/Mathf.Max(1,source.tilePixels),rows=source.texture.height/Mathf.Max(1,source.tilePixels);
                 if(face.tile.x<0||face.tile.y<0||face.tile.x>=columns||face.tile.y>=rows)throw new InvalidOperationException("Hay caras con tiles fuera de su imagen. Corrige sus coordenadas o recupera el tileset original.");
@@ -128,16 +129,22 @@ namespace HeartDev.TilePropStudio
             {
                 T Store<T>(T source,string assetPath) where T:UnityEngine.Object
                 {
-                    var existing=AssetDatabase.LoadAssetAtPath<T>(assetPath);if(existing!=null){EditorUtility.CopySerialized(source,existing);EditorUtility.SetDirty(existing);return existing;}
-                    var created=UnityEngine.Object.Instantiate(source);created.hideFlags=HideFlags.None;AssetDatabase.CreateAsset(created,assetPath);return created;
+                    var existing=AssetDatabase.LoadAssetAtPath<T>(assetPath);if(existing!=null){EditorUtility.CopySerialized(source,existing);existing.name=Path.GetFileNameWithoutExtension(assetPath);EditorUtility.SetDirty(existing);AssetDatabase.SaveAssetIfDirty(existing);return existing;}
+                    var created=UnityEngine.Object.Instantiate(source);created.name=Path.GetFileNameWithoutExtension(assetPath);created.hideFlags=HideFlags.None;AssetDatabase.CreateAsset(created,assetPath);return created;
                 }
-                model.root.GetComponent<MeshFilter>().sharedMesh=Store(model.mesh,folder+"/"+stem+"_Geometry.asset");
+                TilePropMeshOptimizer.Optimize(model.mesh);
+                var storedMesh=Store(model.mesh,folder+"/"+stem+"_Geometry.asset");model.root.GetComponent<MeshFilter>().sharedMesh=storedMesh;
+                if(doc.EffectiveCollider==TilePropCollider.Malla||doc.EffectiveCollider==TilePropCollider.Convexo){var savedCollider=model.root.AddComponent<MeshCollider>();savedCollider.sharedMesh=storedMesh;savedCollider.convex=doc.EffectiveCollider==TilePropCollider.Convexo;}
+                if(doc.EffectiveCollider==TilePropCollider.Caja){var boxCollider=model.root.AddComponent<BoxCollider>();var bounds=doc.PixelBounds;boxCollider.center=(bounds.center-doc.pivotPixels)/Mathf.Max(1,doc.pixelsPerUnit);boxCollider.size=Vector3.Max(bounds.size,Vector3.one)/Mathf.Max(1,doc.pixelsPerUnit);}
                 var renderer=model.root.GetComponent<MeshRenderer>();var storedMaterials=new List<Material>();
                 for(int i=0;i<model.materials.Count;i++)storedMaterials.Add(Store(model.materials[i],MaterialPath(folder,stem,model.tilesets[i],model.tilesets[i]==doc.tilesets.FirstOrDefault(candidate=>candidate!=null))));
                 renderer.sharedMaterials=storedMaterials.ToArray();model.root.hideFlags=HideFlags.None;
-                var metadata=model.root.AddComponent<TilePropAsset>();metadata.pixelsPerUnit=doc.pixelsPerUnit;metadata.sourceGuid=AssetDatabase.AssetPathToGUID(AssetDatabase.GetAssetPath(doc));metadata.thumbnail=doc.thumbnail;metadata.faceCount=doc.faces.Count(face=>face!=null&&!face.hidden);metadata.vertexCount=metadata.faceCount*4;metadata.triangleCount=metadata.faceCount*2;metadata.materialCount=model.materials.Count;
+                var metadata=model.root.AddComponent<TilePropAsset>();metadata.pixelsPerUnit=doc.pixelsPerUnit;metadata.sourceGuid=AssetDatabase.AssetPathToGUID(AssetDatabase.GetAssetPath(doc));metadata.thumbnail=doc.thumbnail;metadata.faceCount=doc.faces.Count(face=>face!=null&&!face.hidden);metadata.vertexCount=model.mesh.vertexCount;metadata.triangleCount=model.mesh.triangles.Length/3;metadata.materialCount=model.materials.Count;metadata.exportSignature=TilePropDiagnostics.Signature(doc);metadata.sourceSignature=TilePropDiagnostics.Signature(doc,false);
+                foreach(var component in doc.components.Where(c=>c?.prefab!=null)){var childMetadata=component.prefab.GetComponent<TilePropAsset>();if(childMetadata==null)continue;metadata.faceCount+=childMetadata.faceCount;metadata.vertexCount+=childMetadata.vertexCount;metadata.triangleCount+=childMetadata.triangleCount;}
+                metadata.materialCount=model.root.GetComponentsInChildren<Renderer>(true).SelectMany(r=>r.sharedMaterials).Where(m=>m!=null).Distinct().Count();
+                metadata.connectionPoints=(doc.connectionPoints??new List<TilePropDocument.ConnectionPoint>()).Where(p=>p!=null).Select(p=>new TilePropAsset.ConnectionPoint{id=p.id,name=p.name,position=((Vector3)p.positionPixels-doc.pivotPixels)/Mathf.Max(1,doc.pixelsPerUnit),rotationEuler=p.rotationEuler}).ToArray();
                 var prefab=PrefabUtility.SaveAsPrefabAsset(model.root,path);if(prefab==null)throw new InvalidOperationException("No se pudo guardar el prefab.");
-                doc.exportedPrefab=prefab;EditorUtility.SetDirty(doc);AssetDatabase.SaveAssets();return path;
+                doc.exportedPrefab=prefab;EditorUtility.SetDirty(doc);AssetDatabase.SaveAssetIfDirty(doc);TilePropAsset.NotifyExported(prefab);return path;
             }
         }
     }

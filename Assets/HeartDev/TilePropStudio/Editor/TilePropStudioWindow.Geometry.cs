@@ -1,4 +1,5 @@
 // Copyright (c) 2026 HeartDev. See the repository LICENSE.
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEditor;
@@ -75,9 +76,9 @@ namespace HeartDev.TilePropStudio
             {
                 var geometry=new HashSet<string>();document.faces.RemoveAll(face=>
                 {
-                    if(face==null)return true;Vector3 normal=Vector3.Cross(face.b-face.a,face.c-face.a)+Vector3.Cross(face.c-face.a,face.d-face.a);if(normal.sqrMagnitude<.0001f)return true;
+                    if(face==null)return true;if(face.locked||face.hidden)return false;Vector3 normal=Vector3.Cross(face.b-face.a,face.c-face.a)+Vector3.Cross(face.c-face.a,face.d-face.a);if(normal.sqrMagnitude<.0001f)return true;
                     var points=face.Corners.OrderBy(point=>point.x).ThenBy(point=>point.y).ThenBy(point=>point.z).Select(point=>point.x+","+point.y+","+point.z);
-                    string key=face.tilesetId+"|"+face.tile.x+","+face.tile.y+"|"+face.rotation+"|"+face.flipX+"|"+face.flipY+"|"+face.uvRect+"|"+string.Join(";",points);return !geometry.Add(key);
+                    string key=face.tilesetId+"|"+face.tile.x+","+face.tile.y+"|"+face.rotation+"|"+face.flipX+"|"+face.flipY+"|"+face.uvRect+"|"+string.Join(";",TilePropUV.Corners(face).Select(uv=>uv.ToString("R")))+"|"+string.Join(";",points);return !geometry.Add(key);
                 });
                 var alive=new HashSet<string>(document.faces.Where(face=>face!=null).Select(face=>face.id));selected.RemoveWhere(id=>!alive.Contains(id));
             },"Limpiar geometría repetida o degenerada");
@@ -88,7 +89,7 @@ namespace HeartDev.TilePropStudio
         {
             if(document==null||SelectionCount==0){if(status!=null)status.text="Selecciona caras para invertir sus normales.";return;}
             var faces=SelectedFacesForUv();if(faces.Count==0)return;
-            Edit(()=>{foreach(var face in faces){var b=face.b;face.b=face.d;face.d=b;}},"Invertir normales de caras");
+            Edit(()=>{foreach(var face in faces){var uv=TilePropUV.Corners(face);var b=face.b;face.b=face.d;face.d=b;face.customUV=new[]{uv[0],uv[3],uv[2],uv[1]};}},"Invertir normales de caras");
         }
 
         private sealed class BoundaryEdge
@@ -161,7 +162,7 @@ namespace HeartDev.TilePropStudio
             destination.groupId=source.groupId;destination.uvRect=new Vector4(0,0,1,1);
             if(extrusionInheritTile)
             {
-                destination.tilesetId=source.tilesetId;destination.tile=source.tile;destination.rotation=source.rotation;destination.flipX=source.flipX;destination.flipY=source.flipY;destination.uvRect=source.uvRect;
+                destination.tilesetId=source.tilesetId;destination.tile=source.tile;destination.rotation=source.rotation;destination.flipX=source.flipX;destination.flipY=source.flipY;destination.uvRect=source.uvRect;destination.customUV=source.customUV!=null?(Vector2[])source.customUV.Clone():Array.Empty<Vector2>();
             }
             else SetTile(destination);
         }
@@ -188,6 +189,7 @@ namespace HeartDev.TilePropStudio
             var pieces=new List<TilePropDocument.Face>(originals.Count*parts*parts);
             foreach(var face in originals)
                 for(int y=0;y<parts;y++)for(int x=0;x<parts;x++)pieces.Add(SubFace(face,x,y,parts));
+            if(pieces.Any(TilePropMeshTools.Degenerate)){status.text="La subdivisión colapsaría caras en la cuadrícula de píxeles. Reduce las divisiones o amplía la cara.";return;}
             var originalIds=new HashSet<string>(originals.Select(face=>face.id));
             Edit(()=>
             {
@@ -206,10 +208,7 @@ namespace HeartDev.TilePropStudio
                 tile=source.tile,tilesetId=source.tilesetId,groupId=source.groupId,rotation=source.rotation,flipX=source.flipX,flipY=source.flipY,
                 flipDiagonal=source.flipDiagonal,hidden=source.hidden,locked=source.locked
             };
-            Vector4 parent=ValidRegion(source.uvRect);
-            Vector2[] corners={MapUV(source,new Vector2((float)x/parts,(float)y/parts)),MapUV(source,new Vector2((float)(x+1)/parts,(float)y/parts)),MapUV(source,new Vector2((float)(x+1)/parts,(float)(y+1)/parts)),MapUV(source,new Vector2((float)x/parts,(float)(y+1)/parts))};
-            Vector2 min=corners[0],max=corners[0];foreach(var point in corners){min=Vector2.Min(min,point);max=Vector2.Max(max,point);}
-            result.uvRect=new Vector4(parent.x+min.x*(parent.z-parent.x),parent.y+min.y*(parent.w-parent.y),parent.x+max.x*(parent.z-parent.x),parent.y+max.y*(parent.w-parent.y));
+            result.customUV=new[]{TilePropUV.At(source,(float)x/parts,(float)y/parts),TilePropUV.At(source,(float)(x+1)/parts,(float)y/parts),TilePropUV.At(source,(float)(x+1)/parts,(float)(y+1)/parts),TilePropUV.At(source,(float)x/parts,(float)(y+1)/parts)};
             return result;
         }
 

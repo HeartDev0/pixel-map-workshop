@@ -46,12 +46,12 @@ namespace HeartDev.MapWorkshop
         [MenuItem("Tools/HeartDev/Pixel Map Workshop")]
         public static void Open(){var window=GetWindow<PixelMapWorkshopWindow>("Pixel Map Workshop");window.minSize=new Vector2(900,600);window.Show();}
         public static void OpenDocument(PixelMapDocument map){if(map!=null&&!map.IsSupportedFormat){EditorUtility.DisplayDialog("Formato más reciente","Actualiza Map Workshop para editar este documento.","Aceptar");return;}Open();var window=GetWindow<PixelMapWorkshopWindow>();window.ClearSelection();window.selectedProp=-1;window.document=map;window.CreateGUI();}
-        private void OnEnable(){LoadWorkspacePreferences();Undo.undoRedoPerformed+=OnUndo;EditorApplication.update+=UpdatePreview;PixelMapWorkshopPerformance.Changed+=OnPerformanceSettingsChanged;wantsMouseMove=true;}
+        private void OnEnable(){LoadWorkspacePreferences();HeartDev.TilePropStudio.TilePropAsset.ExportCompleted+=OnTilePropExported;Undo.undoRedoPerformed+=OnUndo;EditorApplication.update+=UpdatePreview;PixelMapWorkshopPerformance.Changed+=OnPerformanceSettingsChanged;wantsMouseMove=true;}
         private void OnDisable()
         {
             ReleasePreviewNavigation();ReleasePropGizmo();SaveWorkspacePreferences();DisposeGeneratedBase();
             CancelLayerDrag();EditorApplication.delayCall-=FlushLayerRefresh;layerRefreshQueued=false;layerVisualRefresh=false;
-            EndStroke();Undo.undoRedoPerformed-=OnUndo;EditorApplication.update-=UpdatePreview;PixelMapWorkshopPerformance.Changed-=OnPerformanceSettingsChanged;
+            EndStroke();HeartDev.TilePropStudio.TilePropAsset.ExportCompleted-=OnTilePropExported;Undo.undoRedoPerformed-=OnUndo;EditorApplication.update-=UpdatePreview;PixelMapWorkshopPerformance.Changed-=OnPerformanceSettingsChanged;
             if(paintTexture!=null)DestroyImmediate(paintTexture);
             if(patternPreviewTexture!=null)DestroyImmediate(patternPreviewTexture);
             if(cursorTexture!=null)DestroyImmediate(cursorTexture);

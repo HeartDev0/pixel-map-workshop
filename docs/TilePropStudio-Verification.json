@@ -1,0 +1,247 @@
+{
+  "date": "2026-10-22",
+  "unity": "6000.6.0f1",
+  "suite": "HeartDev.TilePropStudio.Editor.Tests",
+  "status": "completed",
+  "summary": {
+    "total": 41,
+    "passed": 41,
+    "failed": 0,
+    "skipped": 0,
+    "inconclusive": 0
+  },
+  "tests": [
+    {
+      "FullName": "HeartDev.TilePropStudio.Tests.TilePropGeometryTests.AtlasUVMoveIsUndoableAndSurvivesSerialization",
+      "Status": "Passed",
+      "Duration": 0.0614321
+    },
+    {
+      "FullName": "HeartDev.TilePropStudio.Tests.TilePropGeometryTests.BridgeAvoidsCrossedCorrespondenceAndKeepsStyle",
+      "Status": "Passed",
+      "Duration": 0.0015646
+    },
+    {
+      "FullName": "HeartDev.TilePropStudio.Tests.TilePropGeometryTests.CutOutsideSelectionRetainsFaceIdentity",
+      "Status": "Passed",
+      "Duration": 0.0025323
+    },
+    {
+      "FullName": "HeartDev.TilePropStudio.Tests.TilePropGeometryTests.CutPreservesInterpolatedRotatedUVAndArea(0)",
+      "Status": "Passed",
+      "Duration": 0.0054327
+    },
+    {
+      "FullName": "HeartDev.TilePropStudio.Tests.TilePropGeometryTests.CutPreservesInterpolatedRotatedUVAndArea(1)",
+      "Status": "Passed",
+      "Duration": 0.0003857
+    },
+    {
+      "FullName": "HeartDev.TilePropStudio.Tests.TilePropGeometryTests.CutPreservesInterpolatedRotatedUVAndArea(2)",
+      "Status": "Passed",
+      "Duration": 0.0003629
+    },
+    {
+      "FullName": "HeartDev.TilePropStudio.Tests.TilePropGeometryTests.CutPreservesInterpolatedRotatedUVAndArea(3)",
+      "Status": "Passed",
+      "Duration": 0.0006025
+    },
+    {
+      "FullName": "HeartDev.TilePropStudio.Tests.TilePropGeometryTests.DensityCorrectionRestoresOneTexelPerGeometryPixel",
+      "Status": "Passed",
+      "Duration": 0.0011529
+    },
+    {
+      "FullName": "HeartDev.TilePropStudio.Tests.TilePropGeometryTests.DensityFitPreservesTriangleAndSkewedQuadShape",
+      "Status": "Passed",
+      "Duration": 0.0004423
+    },
+    {
+      "FullName": "HeartDev.TilePropStudio.Tests.TilePropGeometryTests.EscapeCancelsModalGeometryAndTextEntryIgnoresShortcuts",
+      "Status": "Passed",
+      "Duration": 0.0472144
+    },
+    {
+      "FullName": "HeartDev.TilePropStudio.Tests.TilePropGeometryTests.KeyboardFaceExtrusionConfirmsSixteenPixelsAndUndoes",
+      "Status": "Passed",
+      "Duration": 0.0397379
+    },
+    {
+      "FullName": "HeartDev.TilePropStudio.Tests.TilePropGeometryTests.WeldingJoinsNearbyVerticesOnPixelGrid",
+      "Status": "Passed",
+      "Duration": 0.0067302
+    },
+    {
+      "FullName": "HeartDev.TilePropStudio.Tests.TilePropGeometryTests.WeldingProtectsLockedSharedPositions",
+      "Status": "Passed",
+      "Duration": 0.0008587
+    },
+    {
+      "FullName": "HeartDev.TilePropStudio.Tests.TilePropWorkflowTests.BoxRampBridgeToModularPropCanSaveReloadAndUndo",
+      "Status": "Passed",
+      "Duration": 0.5746987
+    },
+    {
+      "FullName": "HeartDev.TilePropStudio.Tests.TilePropWorkflowTests.ComponentsOnlyPropExportsAndBoundsIncludeInstanceTransform",
+      "Status": "Passed",
+      "Duration": 0.6538482
+    },
+    {
+      "FullName": "HeartDev.TilePropStudio.Tests.TilePropWorkflowTests.ConvexColliderUsesPersistentExportedGeometry",
+      "Status": "Passed",
+      "Duration": 0.3398741
+    },
+    {
+      "FullName": "HeartDev.TilePropStudio.Tests.TilePropWorkflowTests.CutWeldAndBridgeCommandsEachHaveOneUndo",
+      "Status": "Passed",
+      "Duration": 0.2546889
+    },
+    {
+      "FullName": "HeartDev.TilePropStudio.Tests.TilePropWorkflowTests.DuplicatingRetainsIndependentExplicitUVAndCanUndo",
+      "Status": "Passed",
+      "Duration": 0.1863768
+    },
+    {
+      "FullName": "HeartDev.TilePropStudio.Tests.TilePropWorkflowTests.ExportMergesEquivalentMaterialsButKeepsDistinctAtlases",
+      "Status": "Passed",
+      "Duration": 0.5502865
+    },
+    {
+      "FullName": "HeartDev.TilePropStudio.Tests.TilePropWorkflowTests.ExportOptimizerWeldsSharedAttributesButKeepsUVSeams",
+      "Status": "Passed",
+      "Duration": 0.1718425
+    },
+    {
+      "FullName": "HeartDev.TilePropStudio.Tests.TilePropWorkflowTests.ExportUpdatesPlacedPrefabAndColliderKeepsPersistentMeshAndGUIDs",
+      "Status": "Passed",
+      "Duration": 0.5123452
+    },
+    {
+      "FullName": "HeartDev.TilePropStudio.Tests.TilePropWorkflowTests.ExportUsesConfiguredCollider(Ninguno)",
+      "Status": "Passed",
+      "Duration": 0.4396265
+    },
+    {
+      "FullName": "HeartDev.TilePropStudio.Tests.TilePropWorkflowTests.ExportUsesConfiguredCollider(Caja)",
+      "Status": "Passed",
+      "Duration": 0.3381545
+    },
+    {
+      "FullName": "HeartDev.TilePropStudio.Tests.TilePropWorkflowTests.ExportUsesConfiguredCollider(Malla)",
+      "Status": "Passed",
+      "Duration": 0.3776037
+    },
+    {
+      "FullName": "HeartDev.TilePropStudio.Tests.TilePropWorkflowTests.ExtractAlignAndMaterialVariantKeepSourceGeometryLinked",
+      "Status": "Passed",
+      "Duration": 0.6893357
+    },
+    {
+      "FullName": "HeartDev.TilePropStudio.Tests.TilePropWorkflowTests.EyedropperRecoversExactCustomUVAndPaintingDoesNotModifyOriginalFace",
+      "Status": "Passed",
+      "Duration": 0.1638199
+    },
+    {
+      "FullName": "HeartDev.TilePropStudio.Tests.TilePropWorkflowTests.FloodRespectsSelectionHiddenLockedTilesAndDisconnectedFaces",
+      "Status": "Passed",
+      "Duration": 0.1621801
+    },
+    {
+      "FullName": "HeartDev.TilePropStudio.Tests.TilePropWorkflowTests.FoldoutStateSurvivesRebuildingEditor",
+      "Status": "Passed",
+      "Duration": 0.1935064
+    },
+    {
+      "FullName": "HeartDev.TilePropStudio.Tests.TilePropWorkflowTests.FutureFormatIsReadOnlyAndLegacyColliderMigrates",
+      "Status": "Passed",
+      "Duration": 0.1791006
+    },
+    {
+      "FullName": "HeartDev.TilePropStudio.Tests.TilePropWorkflowTests.OptimizerDropsZeroAreaTrianglesAndTheirUnusedVertices",
+      "Status": "Passed",
+      "Duration": 0.1721025
+    },
+    {
+      "FullName": "HeartDev.TilePropStudio.Tests.TilePropWorkflowTests.PixelStrokeClipsToFaceUVAndUndoRestoresTextureWithoutGeometryChange",
+      "Status": "Passed",
+      "Duration": 0.1985563
+    },
+    {
+      "FullName": "HeartDev.TilePropStudio.Tests.TilePropWorkflowTests.PreflightRejectsInvalidUVBeforeCreatingExportResources",
+      "Status": "Passed",
+      "Duration": 0.1621045
+    },
+    {
+      "FullName": "HeartDev.TilePropStudio.Tests.TilePropWorkflowTests.RayPicksActualUVWithRotationAndEitherDiagonal(0,False)",
+      "Status": "Passed",
+      "Duration": 0.163433
+    },
+    {
+      "FullName": "HeartDev.TilePropStudio.Tests.TilePropWorkflowTests.RayPicksActualUVWithRotationAndEitherDiagonal(1,False)",
+      "Status": "Passed",
+      "Duration": 0.1642254
+    },
+    {
+      "FullName": "HeartDev.TilePropStudio.Tests.TilePropWorkflowTests.RayPicksActualUVWithRotationAndEitherDiagonal(2,False)",
+      "Status": "Passed",
+      "Duration": 0.1636485
+    },
+    {
+      "FullName": "HeartDev.TilePropStudio.Tests.TilePropWorkflowTests.RayPicksActualUVWithRotationAndEitherDiagonal(3,False)",
+      "Status": "Passed",
+      "Duration": 0.1594214
+    },
+    {
+      "FullName": "HeartDev.TilePropStudio.Tests.TilePropWorkflowTests.RayPicksActualUVWithRotationAndEitherDiagonal(0,True)",
+      "Status": "Passed",
+      "Duration": 0.1680298
+    },
+    {
+      "FullName": "HeartDev.TilePropStudio.Tests.TilePropWorkflowTests.RayPicksActualUVWithRotationAndEitherDiagonal(1,True)",
+      "Status": "Passed",
+      "Duration": 0.1841407
+    },
+    {
+      "FullName": "HeartDev.TilePropStudio.Tests.TilePropWorkflowTests.RayPicksActualUVWithRotationAndEitherDiagonal(2,True)",
+      "Status": "Passed",
+      "Duration": 0.164147
+    },
+    {
+      "FullName": "HeartDev.TilePropStudio.Tests.TilePropWorkflowTests.RayPicksActualUVWithRotationAndEitherDiagonal(3,True)",
+      "Status": "Passed",
+      "Duration": 0.1607152
+    },
+    {
+      "FullName": "HeartDev.TilePropStudio.Tests.TilePropWorkflowTests.UpdatingPropRebuildsMapPlacementAtSamePixelScale",
+      "Status": "Passed",
+      "Duration": 0.5717302
+    }
+  ],
+  "nativeViewport": {
+    "escapeRestoredDocument": true,
+    "undoUV": [
+      16,
+      16
+    ],
+    "pixelStrokePreservedGeometry": true,
+    "thumbnailGuidRetained": true,
+    "pixelUndoRestoredTexture": true,
+    "pixelStrokeChangedTexels": 6,
+    "thumbnailPixels": 128,
+    "uvDragTo": [
+      20,
+      20
+    ],
+    "uvDragFrom": [
+      16,
+      16
+    ]
+  },
+  "exportFixture": {
+    "exportVertices": 82,
+    "materials": 1,
+    "triangles": 40,
+    "faces": 21,
+    "previewVertices": 84
+  }
+}

@@ -39,6 +39,14 @@ namespace HeartDev.TilePropStudio
             Add("transform.scale","Escalar","S",KeyCode.S,()=>BeginModalTransform(ModalOperation.Scale));
             Add("mesh.extrude","Extruir","E",KeyCode.E,()=>BeginModalTransform(ModalOperation.Extrude));
             Add("mesh.duplicate","Duplicar y mover","Shift+D",KeyCode.D,()=>BeginModalTransform(ModalOperation.Duplicate),shift:true);
+            Add("mesh.cut","Cortar caras por plano","",KeyCode.None,CutSelectedFaces);
+            Add("mesh.weld","Soldar vértices por distancia","",KeyCode.None,WeldSelectedVertices);
+            Add("mesh.bridge","Conectar dos bordes","",KeyCode.None,BridgeSelectedEdges);
+            Add("uv.move","Desplazar UV en píxeles","",KeyCode.None,MoveSelectedUV);
+            Add("uv.density","Restaurar densidad UV 1:1","",KeyCode.None,RestoreSelectedDensity);
+            Add("uv.stitch","Coser UV contiguas","",KeyCode.None,StitchSelectedUV);
+            Add("component.extract","Extraer selección a componente","",KeyCode.None,ExtractComponentSelection);
+            Add("component.connect","Encajar conexiones del componente","",KeyCode.None,ConnectSelectedComponent);
             Add("selection.all","Seleccionar todo","A",KeyCode.A,SelectAllComponents);
             Add("selection.none","Deseleccionar todo","Alt+A",KeyCode.A,ClearSelection,alt:true);
             Add("selection.invert","Invertir selección","Ctrl+I",KeyCode.I,InvertSelection,control:true);
@@ -58,6 +66,8 @@ namespace HeartDev.TilePropStudio
             Add("tool.paint","Herramienta pintar","P",KeyCode.P,()=>SetTool(Tool.Pintar));
             Add("tool.select","Herramienta seleccionar","V",KeyCode.V,()=>SetTool(Tool.Seleccionar));
             Add("tool.erase","Herramienta borrar","Shift+E",KeyCode.E,()=>SetTool(Tool.Borrar),shift:true);
+            Add("tool.fill","Balde de tiles por región","Shift+F",KeyCode.F,()=>SetTool(Tool.Rellenar),shift:true);
+            Add("tool.sample","Tomar tile y UV","I",KeyCode.I,()=>SetTool(Tool.TomarTile));
         }
 
         private void EnsureCommandRegistry()
@@ -67,6 +77,7 @@ namespace HeartDev.TilePropStudio
 
         private void RunCommand(string id)
         {
+            if(document!=null&&!document.IsSupportedFormat)return;
             EnsureCommandRegistry();
             var command=commands.FirstOrDefault(item=>item.id==id);
             if(command==null||command.execute==null)return;
@@ -75,7 +86,9 @@ namespace HeartDev.TilePropStudio
 
         private void Shortcuts(KeyDownEvent e)
         {
-            var focused=rootVisualElement!=null?rootVisualElement.focusController.focusedElement as VisualElement:null;
+            if(document!=null&&!document.IsSupportedFormat)return;
+            if(uvDragging&&e.keyCode==KeyCode.Escape){FinishUVDrag(true);e.PreventDefault();e.StopPropagation();return;}
+            var focused=rootVisualElement!=null?rootVisualElement.focusController?.focusedElement as VisualElement:null;
             if(IsTextEntryTarget(e.target as VisualElement)||IsTextEntryTarget(focused))return;
             if(commandSearchOverlay!=null&&commandSearchOverlay.style.display==DisplayStyle.Flex)return;
 
